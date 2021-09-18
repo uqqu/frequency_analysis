@@ -13,6 +13,7 @@ class FrequencyAnalysis:
         mode,
         clear_word_pattern,
         intraword_symbols,
+        position_count,
         total_symbols,
         total_words,
         db,
@@ -21,6 +22,7 @@ class FrequencyAnalysis:
         self.mode = mode
         self.clear_word_pattern = clear_word_pattern
         self.intraword_symbols = intraword_symbols
+        self.position_count = position_count
         self.total_symbols = total_symbols
         self.total_words = total_words
         self.db = db
@@ -43,7 +45,7 @@ class FrequencyAnalysis:
         shift = 0
         for word_pos, word in enumerate(word_list):
             clear_word = re.sub(self.clear_word_pattern, '', word)
-            clear_word = re.sub(self.clear_word_pattern, '', clear_word) # TODO
+            clear_word = re.sub(self.clear_word_pattern, '', clear_word)
             if not clear_word:
                 last_word_id = None
                 shift += 1
@@ -78,18 +80,19 @@ class FrequencyAnalysis:
                 )
                 word_id = self.cursor.fetchone()[0]
 
-            self.cursor.execute(
-                f'''
-                INSERT INTO word_entries (word_id, position)
-                VALUES ({word_id}, {word_pos - shift + 1});
-                '''
-            )
+            if self.position_count:
+                self.cursor.execute(
+                    f'''
+                    INSERT INTO word_entries (word_id, position)
+                    VALUES ({word_id}, {word_pos - shift + 1});
+                    '''
+                )
             if last_word_id:
-                self.count_word_bigrams(last_word_id, word_id, word_pos)
+                self.__count_word_bigrams(last_word_id, word_id, word_pos)
             last_word_id = word_id
             self.db.commit()
 
-    def count_word_bigrams(self, first_word_id: int, second_word_id: int, position: int):
+    def __count_word_bigrams(self, first_word_id: int, second_word_id: int, position: int):
         self.cursor.execute(
             f'''
             SELECT id
@@ -116,15 +119,16 @@ class FrequencyAnalysis:
                 '''
             )
             word_bigram_id = self.cursor.fetchone()[0]
-        self.cursor.execute(
-            f'''
-            INSERT INTO word_bigram_entries (word_bigram_id, position)
-            VALUES ({word_bigram_id}, {position});
-            '''
-        )
+        if self.position_count:
+            self.cursor.execute(
+                f'''
+                INSERT INTO word_bigram_entries (word_bigram_id, position)
+                VALUES ({word_bigram_id}, {position});
+                '''
+            )
 
     def count_symbols(self, word: str):
-        clear_word = re.sub(self.clear_word_pattern, '', word) # TODO
+        clear_word = re.sub(self.clear_word_pattern, '', word)
         if not (clear_word := re.sub(self.clear_word_pattern, '', clear_word)):
             return
         self.cursor.execute(
@@ -158,7 +162,8 @@ class FrequencyAnalysis:
             )
             if not (res := self.cursor.fetchone()):
                 last_symb_id = None
-            else:
+                continue
+            elif self.position_count:
                 symb_id = res[0]
                 if order in self.intraword_symbols:
                     pos = symb_pos - shift + 1
@@ -172,12 +177,16 @@ class FrequencyAnalysis:
                     '''
                 )
                 if last_symb_id:
-                    self.count_symbol_bigrams(last_symb_id, symb_id, pos)
-                last_symb_id = symb_id
+                    self.__count_symbol_bigrams(last_symb_id, symb_id, pos)
+            elif last_symb_id:
+                symb_id = res[0]
+                self.__count_symbol_bigrams(last_symb_id, symb_id, 0)
+            last_symb_id = symb_id
+
         if last_symb_id:
             self.db.commit()
 
-    def count_symbol_bigrams(self, first_symb_id: int, second_symb_id: int, position: int):
+    def __count_symbol_bigrams(self, first_symb_id: int, second_symb_id: int, position: int):
         self.cursor.execute(
             f'''
             SELECT id
@@ -204,12 +213,13 @@ class FrequencyAnalysis:
                 '''
             )
             symbol_bigram_id = self.cursor.fetchone()[0]
-        self.cursor.execute(
-            f'''
-            INSERT INTO symbol_bigram_entries (symbol_bigram_id, position)
-            VALUES ({symbol_bigram_id}, {position});
-            '''
-        )
+        if self.position_count:
+            self.cursor.execute(
+                f'''
+                INSERT INTO symbol_bigram_entries (symbol_bigram_id, position)
+                VALUES ({symbol_bigram_id}, {position});
+                '''
+            )
 
 
 class Analysis:
@@ -228,32 +238,33 @@ class Analysis:
             1105,
         },
         yo: bool = False,
+        position_count: bool = False,
     ):
         if not re.search('^[a-zа-яё0-9_.@() -]+$', name, re.I):
             raise Exception(f"Filename '{name}' is unvalid. Please, enter other.")
         if mode not in ('n', 'a', 'c'):
             raise Exception(
-                "Mode must be 'n' for new analysis, 'a' for append to existing \
-                    or 'c' to continue the previous analysis. If empty – works as 'n'."
+                "Mode must be 'n' for new analysis, 'a' for append to existing "
+                "or 'c' to continue the previous analysis. If empty – works as 'n'."
             )
         if mode == 'n' and os.path.isfile(f'./{name}.db'):
             raise Exception(
-                f"DB file with the '{name}' name already exist! Use mode 'a' \
-                    for append to existing, or 'c' to continue the previous analysis."
+                f"DB file with the '{name}' name already exist! Use mode 'a' "
+                "for append to existing, or 'c' to continue the previous analysis."
             )
         if mode != 'n' and not os.path.isfile(f'./{name}.db'):
             raise Exception(
-                "Pattern for cleaning words is broken. \
-                    Use mode 'n' (or leave it empty) to create a new analysis, \
-                    or set name of existing DB (without extension)."
+                "Pattern for cleaning words is broken. "
+                "Use mode 'n' (or leave it empty) to create a new analysis, "
+                "or set name of existing DB (without extension)."
             )
         try:
             re.compile(clear_word_pattern)
         except re.error as re_error:
             raise Exception(
-                f"DB file with the '{name}' name is not exist! \
-                    Use mode 'n' to create a new analysis, or set name of existing DB \
-                    (without extension)."
+                f"DB file with the '{name}' name is not exist! "
+                "Use mode 'n' to create a new analysis, or set name of existing DB "
+                "(without extension)."
             ) from re_error
         if (
             not isinstance(allowed_symbols, (str, list))
@@ -264,10 +275,10 @@ class Analysis:
             )
         ):
             raise Exception(
-                "Allowed symbols must be a string or a list of single symbols \
-                    or a list of integers (decimal unicode values). \
-                    If empty works as <base latin> + <russian cyrillic> + <numbers> + \
-                    <space> + '!\"#$%&'()*+,-./:;<>=?@[]\\^_`{}|~'."
+                "Allowed symbols must be a string or a list of single symbols "
+                "or a list of integers (decimal unicode values). "
+                "If empty works as <base latin> + <russian cyrillic> + <numbers> + "
+                "<space> + '!\"#$%&'()*+,-./:;<>=?@[]\\^_`{}|~'."
             )
         if (
             not isinstance(intraword_symbols, (str, set))
@@ -278,9 +289,9 @@ class Analysis:
             )
         ):
             raise Exception(
-                "Intraword symbols must be a string or a set of single symbols \
-                    or a set of integers (decimal unicode values). \
-                    If empty works as <base latin> + <russian cyrillic> + '-'."
+                "Intraword symbols must be a string or a set of single symbols "
+                "or a set of integers (decimal unicode values). "
+                "If empty works as <base latin> + <russian cyrillic> + '-'."
             )
         if yo and (not os.path.isfile('./yo.txt') or not os.path.isfile('./ye-yo.txt')):
             raise Exception(
@@ -307,7 +318,14 @@ class Analysis:
             total_symbols = cursor.fetchone()[0]
 
         return FrequencyAnalysis(
-            name, mode, clear_word_pattern, intraword_symbols, total_symbols, total_words, db
+            name,
+            mode,
+            clear_word_pattern,
+            intraword_symbols,
+            position_count,
+            total_symbols,
+            total_words,
+            db,
         )
 
 
