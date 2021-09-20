@@ -10,214 +10,167 @@ class FrequencyAnalysis:
     def __init__(
         self,
         name,
-        mode,
         clear_word_pattern,
+        allowed_symbols,
         intraword_symbols,
-        position_count,
         total_symbols,
         total_words,
         db,
     ):
-        self.name = name
-        self.mode = mode
-        self.clear_word_pattern = clear_word_pattern
-        self.intraword_symbols = intraword_symbols
-        self.position_count = position_count
-        self.total_symbols = total_symbols
-        self.total_words = total_words
-        self.db = db
-        self.cursor = db.cursor()
+        self.__name = name
+        self.__clear_word_pattern = clear_word_pattern
+        self.__allowed_symbols = allowed_symbols
+        self.__intraword_symbols = intraword_symbols
+        self.__total_symbols = total_symbols
+        self.__total_words = total_words
+        self.__db = db
+        self.__cursor = db.cursor()
+        self.__counter = 0
 
-    def count_all(self, word_list: list):
-        self.count_words(word_list)
-        for word in word_list:
-            self.cursor.execute(
-                '''
-                UPDATE symbols
-                SET quantity=quantity+1
-                WHERE ord=32;
-                '''
-            )
-            self.count_symbols(word)
+    def commit(func):
+        def inner(self, *args, **kwargs):
+            self.__counter += 1
+            if self.__counter > 100:
+                self.__counter = 0
+                self.__db.commit()
+            return func(self, *args, **kwargs)
 
-    def count_words(self, word_list: list):
-        last_word_id = None
-        shift = 0
-        for word_pos, word in enumerate(word_list):
-            clear_word = re.sub(self.clear_word_pattern, '', word)
-            clear_word = re.sub(self.clear_word_pattern, '', clear_word)
-            if not clear_word:
-                last_word_id = None
-                shift += 1
-                continue
-            if self.total_words > 0:
-                self.total_words -= 1
-                continue
+        return inner
 
-            self.cursor.execute(
-                f'''
-                SELECT id
-                FROM words
-                WHERE word="{clear_word.lower()}";
-                '''
-            )
-            if res := self.cursor.fetchone():
-                word_id = res[0]
-                self.cursor.execute(
-                    f'''
-                    UPDATE words
+    def final(self):
+        self.__db.commit()
+
+    @commit
+    def count_all(self, word_list: list, pos=False, symbol_bigram=True, word_bigram=True):
+        clear_word_list = [re.sub(self.__clear_word_pattern, '', x).lower() for x in word_list]
+        for word, clear_word in zip(word_list, clear_word_list):
+            if self.__total_symbols == 0:
+                self.__cursor.execute(
+                    '''
+                    UPDATE symbols
                     SET quantity=quantity+1
-                    WHERE id={word_id};
+                    WHERE ord=32;
                     '''
                 )
-            else:
-                self.cursor.execute(
-                    f'''
-                    INSERT INTO words (word, quantity)
-                    VALUES ("{clear_word.lower()}", 1)
-                    RETURNING id;
+            self.__count_symbols(word, clear_word, pos, symbol_bigram)
+
+        if cutted_clear_word_list := [x for x in clear_word_list if x]:
+            self.__count_words(cutted_clear_word_list, pos, word_bigram)
+
+    @commit
+    def count_words(self, word_list: list, pos=False, bigram=True):
+        clear_word_list = [re.sub(self.__clear_word_pattern, '', x).lower() for x in word_list]
+        if cutted_clear_word_list := [x for x in clear_word_list if x]:
+            self.__count_words(cutted_clear_word_list, pos, bigram)
+
+    @commit
+    def count_symbols(self, word_list: list, pos=False, bigram=True):
+        clear_word_list = [re.sub(self.__clear_word_pattern, '', x).lower() for x in word_list]
+        cutted_clear_word_list = [x for x in clear_word_list if x]
+
+        for word, clear_word in zip(word_list, clear_word_list):
+            if self.__total_symbols == 0:
+                self.__cursor.execute(
+                    '''
+                    UPDATE symbols
+                    SET quantity=quantity+1
+                    WHERE ord=32;
                     '''
                 )
-                word_id = self.cursor.fetchone()[0]
+            self.__count_symbols(word, clear_word, pos, bigram)
 
-            if self.position_count:
-                self.cursor.execute(
-                    f'''
-                    INSERT INTO word_entries (word_id, position)
-                    VALUES ({word_id}, {word_pos - shift + 1});
-                    '''
-                )
-            if last_word_id:
-                self.__count_word_bigrams(last_word_id, word_id, word_pos)
-            last_word_id = word_id
-            self.db.commit()
-
-    def __count_word_bigrams(self, first_word_id: int, second_word_id: int, position: int):
-        self.cursor.execute(
-            f'''
-            SELECT id
-            FROM word_bigrams
-            WHERE first_word_id="{first_word_id}"
-                AND second_word_id="{second_word_id}";
-            '''
-        )
-        if res := self.cursor.fetchone():
-            word_bigram_id = res[0]
-            self.cursor.execute(
-                f'''
-                UPDATE word_bigrams
-                SET quantity=quantity+1
-                WHERE id={word_bigram_id};
-                '''
-            )
-        else:
-            self.cursor.execute(
-                f'''
-                INSERT INTO word_bigrams (first_word_id, second_word_id, quantity)
-                VALUES ("{first_word_id}", "{second_word_id}", 1)
-                RETURNING id;
-                '''
-            )
-            word_bigram_id = self.cursor.fetchone()[0]
-        if self.position_count:
-            self.cursor.execute(
-                f'''
-                INSERT INTO word_bigram_entries (word_bigram_id, position)
-                VALUES ({word_bigram_id}, {position});
-                '''
-            )
-
-    def count_symbols(self, word: str):
-        clear_word = re.sub(self.clear_word_pattern, '', word)
-        if not (clear_word := re.sub(self.clear_word_pattern, '', clear_word)):
-            return
-        self.cursor.execute(
-            f'''
-            UPDATE symbols
-            SET as_first=as_first+1
-            WHERE ord={ord(clear_word[0])};
-            '''
-        )
-        self.cursor.execute(
-            f'''
-            UPDATE symbols
-            SET as_last=as_last+1
-            WHERE ord={ord(clear_word[-1])};
-            '''
-        )
-        last_symb_id = None
-        shift = 0
-        for symb_pos, symb in enumerate(word):
-            if self.total_symbols > 0:
-                self.total_symbols -= 1
+    def __count_words(self, word_list: list, pos: bool, bigram: bool):
+        last_word = None
+        for word_pos, word in enumerate(word_list, 1):
+            if self.__total_words > 0:
+                self.__total_words -= 1
                 continue
-            order = ord(symb)
-            self.cursor.execute(
+            self.__cursor.execute(
+                f'''
+                INSERT INTO words
+                    (word, quantity, as_first, as_last {', position' if pos else ''})
+                VALUES ("{word}", 1, 0, 0 {f', {word_pos}' if pos else ''})
+                ON CONFLICT (word) DO UPDATE SET quantity=quantity+1
+                    {f', position=(position*quantity+{word_pos}) / (quantity+1)' if pos else ''};
+                '''
+            )
+            if last_word and bigram:
+                self.__cursor.execute(
+                    f'''
+                    INSERT INTO word_bigrams
+                        (first_word, second_word, quantity {', position' if pos else ''})
+                    VALUES ("{last_word}", "{word}", 1 {f', {word_pos - 1}' if pos else ''})
+                    ON CONFLICT (first_word, second_word) DO UPDATE SET quantity=quantity+1
+                    {f', position=(position*quantity+{word_pos - 1}) / (quantity+1)' if pos else ''};
+                    '''
+                )
+            last_word = word
+        self.__cursor.execute(
+            f'''
+            UPDATE words
+            SET as_first=as_first+1
+            WHERE word="{word_list[0]}";
+            '''
+        )
+        self.__cursor.execute(
+            f'''
+            UPDATE words
+            SET as_last=as_last+1
+            WHERE word="{word_list[-1]}";
+            '''
+        )
+
+    def __count_symbols(self, word: str, clear_word: str, pos: bool, bigram: bool):
+        last_symb_ord = None
+        shift = 0
+        for symb_pos, symb in enumerate(word, 1):
+            symb_ord = ord(symb)
+            if symb_ord not in self.__allowed_symbols:
+                last_symb_ord = None
+                continue
+            if self.__total_symbols > 0:
+                self.__total_symbols -= 1
+                continue
+            if symb_ord in self.__intraword_symbols:
+                position = symb_pos - shift
+            else:
+                shift += 1
+                position = symb_pos
+            self.__cursor.execute(
                 f'''
                 UPDATE symbols
                 SET quantity=quantity+1
-                WHERE ord={order}
-                RETURNING id;
+                {f', position=(position*quantity+{position}) / (quantity+1)' if pos else ''}
+                WHERE ord={symb_ord};
                 '''
             )
-            if not (res := self.cursor.fetchone()):
-                last_symb_id = None
-                continue
-            elif self.position_count:
-                symb_id = res[0]
-                if order in self.intraword_symbols:
-                    pos = symb_pos - shift + 1
-                else:
-                    shift += 1
-                    pos = symb_pos + 1
-                self.cursor.execute(
+
+            if last_symb_ord and bigram:
+                self.__cursor.execute(
                     f'''
-                    INSERT INTO symbol_entries (symb_id, position)
-                    VALUES ({symb_id}, {pos});
+                    INSERT INTO symbol_bigrams
+                        (first_symb_ord, second_symb_ord, quantity {', position' if pos else ''})
+                    VALUES ({last_symb_ord}, {symb_ord}, 1 {f', {position - 1}' if pos else ''})
+                    ON CONFLICT (first_symb_ord, second_symb_ord) DO UPDATE SET quantity=quantity+1
+                    {f', position=(position*quantity+{position - 1}) / (quantity+1)' if pos else ''};
                     '''
                 )
-                if last_symb_id:
-                    self.__count_symbol_bigrams(last_symb_id, symb_id, pos)
-            elif last_symb_id:
-                symb_id = res[0]
-                self.__count_symbol_bigrams(last_symb_id, symb_id, 0)
-            last_symb_id = symb_id
 
-        if last_symb_id:
-            self.db.commit()
+            last_symb_ord = symb_ord
 
-    def __count_symbol_bigrams(self, first_symb_id: int, second_symb_id: int, position: int):
-        self.cursor.execute(
-            f'''
-            SELECT id
-            FROM symbol_bigrams
-            WHERE first_symb_id="{first_symb_id}"
-                AND second_symb_id="{second_symb_id}";
-            '''
-        )
-        if res := self.cursor.fetchone():
-            symbol_bigram_id = res[0]
-            self.cursor.execute(
+        if clear_word:
+            self.__cursor.execute(
                 f'''
-                UPDATE symbol_bigrams
-                SET quantity=quantity+1
-                WHERE id={symbol_bigram_id};
+                UPDATE symbols
+                SET as_first=as_first+1
+                WHERE ord={ord(clear_word[0])};
                 '''
             )
-        else:
-            self.cursor.execute(
+            self.__cursor.execute(
                 f'''
-                INSERT INTO symbol_bigrams (first_symb_id, second_symb_id, quantity)
-                VALUES ("{first_symb_id}", "{second_symb_id}", 1)
-                RETURNING id;
-                '''
-            )
-            symbol_bigram_id = self.cursor.fetchone()[0]
-        if self.position_count:
-            self.cursor.execute(
-                f'''
-                INSERT INTO symbol_bigram_entries (symbol_bigram_id, position)
-                VALUES ({symbol_bigram_id}, {position});
+                UPDATE symbols
+                SET as_last=as_last+1
+                WHERE ord={ord(clear_word[-1])};
                 '''
             )
 
@@ -227,18 +180,17 @@ class Analysis:
     def open(
         name: str = 'frequency_analysis',
         mode: str = 'n',  # n – new file, a – append to existing, c – continue to existing
-        clear_word_pattern: str = '[^а-яА-ЯёЁa-zA-Z’\'-]|^[\'-]|[\'-]$',
+        clear_word_pattern: str = '[^а-яА-ЯёЁa-zA-Z’\'-]|^[^а-яА-ЯёЁa-zA-Z]|[^а-яА-ЯёЁa-zA-Z]$',
         allowed_symbols: List[Union[int, str]] = [*range(32, 127), 1025, *range(1040, 1104), 1105],
         intraword_symbols: Set[Union[int, str]] = {
             45,
-            *range(64, 91),
+            *range(65, 91),
             *range(97, 123),
             1025,
             *range(1040, 1104),
             1105,
         },
         yo: bool = False,
-        position_count: bool = False,
     ):
         if not re.search('^[a-zа-яё0-9_.@() -]+$', name, re.I):
             raise Exception(f"Filename '{name}' is unvalid. Please, enter other.")
@@ -319,10 +271,9 @@ class Analysis:
 
         return FrequencyAnalysis(
             name,
-            mode,
             clear_word_pattern,
+            allowed_symbols,
             intraword_symbols,
-            position_count,
             total_symbols,
             total_words,
             db,

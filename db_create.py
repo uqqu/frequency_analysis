@@ -5,86 +5,54 @@ def create_new(db, allowed_symbols):
     cursor = db.cursor()
     cursor.execute(
         '''
-        CREATE TABLE symbols (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        ord INTEGER NOT NULL UNIQUE,
-        quantity INTEGER NOT NULL,
-        as_first INTEGER NOT NULL,
-        as_last INTEGER NOT NULL);
-        '''
-    )
-    cursor.execute(
-        '''
-        CREATE TABLE symbol_entries (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            symb_id INTEGER NOT NULL,
-            position INTEGER NOT NULL,
-            FOREIGN KEY (symb_id)
-                REFERENCES symbols (id));
+        CREATE TABLE IF NOT EXISTS symbols (
+            ord INTEGER PRIMARY KEY,
+            quantity INTEGER NOT NULL,
+            as_first INTEGER NOT NULL,
+            as_last INTEGER NOT NULL,
+            position REAL
+        ) WITHOUT ROWID;
         '''
     )
     cursor.execute(
         '''
         CREATE TABLE symbol_bigrams (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            first_symb_id INTEGER NOT NULL,
-            second_symb_id INTEGER NOT NULL,
+            first_symb_ord INTEGER,
+            second_symb_ord INTEGER,
             quantity INTEGER NOT NULL,
-            FOREIGN KEY (first_symb_id)
-                REFERENCES symbols (id),
-            FOREIGN KEY (second_symb_id)
-                REFERENCES symbols (id));
-        '''
-    )
-    cursor.execute(
-        '''
-        CREATE TABLE symbol_bigram_entries (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            symbol_bigram_id INTEGER NOT NULL,
-            position INTEGER NOT NULL,
-            FOREIGN KEY (symbol_bigram_id)
-                REFERENCES symbol_bigrams (id));
+            position REAL,
+            PRIMARY KEY (first_symb_ord, second_symb_ord),
+            FOREIGN KEY (first_symb_ord)
+                REFERENCES symbols (ord),
+            FOREIGN KEY (second_symb_ord)
+                REFERENCES symbols (ord)
+        ) WITHOUT ROWID;
         '''
     )
     cursor.execute(
         '''
         CREATE TABLE words (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            word TEXT NOT NULL,
-            quantity INTEGER NOT NULL);
-        '''
-    )
-    cursor.execute(
-        '''
-        CREATE TABLE word_entries (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            word_id INTEGER NOT NULL,
-            position INTEGER NOT NULL,
-            FOREIGN KEY (word_id)
-                REFERENCES words (id));
+            word TEXT PRIMARY KEY,
+            quantity INTEGER NOT NULL,
+            as_first INTEGER NOT NULL,
+            as_last INTEGER NOT NULL,
+            position REAL
+        ) WITHOUT ROWID;
         '''
     )
     cursor.execute(
         '''
         CREATE TABLE word_bigrams (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            first_word_id INTEGER NOT NULL,
-            second_word_id INTEGER NOT NULL,
+            first_word TEXT,
+            second_word TEXT,
             quantity INTEGER NOT NULL,
-            FOREIGN KEY (first_word_id)
-                REFERENCES words (id),
-            FOREIGN KEY (second_word_id)
-                REFERENCES words (id));
-        '''
-    )
-    cursor.execute(
-        '''
-        CREATE TABLE word_bigram_entries (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            word_bigram_id INTEGER NOT NULL,
-            position INTEGER NOT NULL,
-            FOREIGN KEY (word_bigram_id)
-                REFERENCES word_bigrams (id));
+            position REAL,
+            PRIMARY KEY (first_word, second_word),
+            FOREIGN KEY (first_word)
+                REFERENCES words (word),
+            FOREIGN KEY (second_word)
+                REFERENCES words (word)
+        ) WITHOUT ROWID;
         '''
     )
 
@@ -93,8 +61,8 @@ def create_new(db, allowed_symbols):
     for symb_ord in allowed_symbols:
         cursor.execute(
             f'''
-            INSERT INTO symbols (ord, quantity, as_first, as_last)
-            VALUES ("{symb_ord}", 0, 0, 0);
+            INSERT INTO symbols (ord, quantity, as_first, as_last, position)
+            VALUES ("{symb_ord}", 0, 0, 0, 1);
             '''
         )
     db.commit()
@@ -105,69 +73,62 @@ def yo_mode(db):
     cursor.execute(
         '''
         CREATE TABLE yo_words (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            yo_word_id INTEGER NOT NULL,
-            ye_word_id INTEGER NOT NULL,
+            yo_word TEXT,
+            ye_word TEXT,
             mandatory BOOLEAN,
-            FOREIGN KEY (yo_word_id)
-                REFERENCES words (id),
-            FOREIGN KEY (ye_word_id)
-                REFERENCES words (id));
+            PRIMARY KEY (yo_word, ye_word),
+            FOREIGN KEY (yo_word)
+                REFERENCES words (word),
+            FOREIGN KEY (ye_word)
+                REFERENCES words (word)
+        ) WITHOUT ROWID;
         '''
     )
 
     with io.open('yo.txt', mode='r', encoding='utf-8') as f:
         for line in f:
+            yo_word = line.strip()
             cursor.execute(
                 f'''
-                INSERT INTO words (word, quantity)
-                VALUES ("{line.strip()}", 0)
-                RETURNING id;
+                INSERT INTO words (word, quantity, as_first, as_last, position)
+                VALUES ("{yo_word}", 0, 0, 0, 1);
                 '''
             )
-            yo_word_id = cursor.fetchone()[0]
-            value = line.strip().replace('ё', 'е')
+            ye_word = yo_word.replace('ё', 'е')
             cursor.execute(
                 f'''
-                INSERT INTO words (word, quantity)
-                VALUES ("{value}", 0)
-                RETURNING id;
+                INSERT INTO words (word, quantity, as_first, as_last, position)
+                VALUES ("{ye_word}", 0, 0, 0, 1);
                 '''
             )
-            ye_word_id = cursor.fetchone()[0]
 
             cursor.execute(
                 f'''
-                INSERT INTO yo_words (yo_word_id, ye_word_id, mandatory)
-                VALUES ("{yo_word_id}", "{ye_word_id}", 1)
-                RETURNING id;
+                INSERT INTO yo_words (yo_word, ye_word, mandatory)
+                VALUES ("{yo_word}", "{ye_word}", 1);
                 '''
             )
 
     with io.open('ye-yo.txt', mode='r', encoding='utf-8') as f:
         for line in f:
+            yo_word = line.strip()
             cursor.execute(
                 f'''
-                INSERT INTO words (word, quantity)
-                VALUES ("{line.strip()}", 0)
-                RETURNING id;
+                INSERT INTO words (word, quantity, as_first, as_last, position)
+                VALUES ("{yo_word}", 0, 0, 0, 1);
                 '''
             )
-            yo_word_id = cursor.fetchone()[0]
-            value = line.strip().replace('ё', 'е')
+            ye_word = line.strip().replace('ё', 'е')
             cursor.execute(
                 f'''
-                INSERT INTO words (word, quantity)
-                VALUES ("{value}", 0)
-                RETURNING id;
+                INSERT INTO words (word, quantity, as_first, as_last, position)
+                VALUES ("{yo_word}", 0, 0, 0, 1);
                 '''
             )
-            ye_word_id = cursor.fetchone()[0]
 
             cursor.execute(
                 f'''
-                INSERT INTO yo_words (yo_word_id, ye_word_id, mandatory)
-                VALUES ("{yo_word_id}", "{ye_word_id}", 0)
-                RETURNING id;
+                INSERT INTO yo_words (yo_word, ye_word, mandatory)
+                VALUES ("{yo_word}", "{ye_word}", 0);
                 '''
             )
