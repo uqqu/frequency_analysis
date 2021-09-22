@@ -9,13 +9,11 @@ import frequency
 file_list = listdir('multiUN/')
 clear_word_pattern = '[^a-zA-Z’\'-]|^[^a-zA-Z]+|[^a-zA-Z]+$'
 allowed_symbols = [*range(32, 127)]
-intraword_symbols = {*range(65, 91), *range(97, 123)}
 
 analyze = frequency.Analysis.open(
     mode='n',
     clear_word_pattern=clear_word_pattern,
     allowed_symbols=allowed_symbols,
-    intraword_symbols=intraword_symbols,
 )
 
 for n, file in enumerate(file_list):

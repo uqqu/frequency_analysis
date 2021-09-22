@@ -1,7 +1,10 @@
-﻿import io
+﻿'''Additional module to frequency.py for creating separate DB for each analysis.'''
+
+import io
 
 
 def create_new(db, allowed_symbols):
+    '''Create all necessary tables.'''
     cursor = db.cursor()
     cursor.execute(
         '''
@@ -69,6 +72,10 @@ def create_new(db, allowed_symbols):
 
 
 def yo_mode(db):
+    '''Create additional table for a demonstration ye/yo Cyrillic misspelling.
+
+    Require additional files with ye/yo word lists.
+    One of the options: https://github.com/uqqu/yo_dict'''
     cursor = db.cursor()
     cursor.execute(
         '''
