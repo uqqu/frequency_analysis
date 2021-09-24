@@ -1,5 +1,6 @@
 ﻿'''Additional module to frequency.py for excel output.'''
 
+import os
 import sqlite3
 from string import ascii_lowercase
 import xlsxwriter
@@ -23,14 +24,14 @@ class ExcelWriter:
                 – (symbs, symb bigrams top, words top, word bigrams top, !symbol bigrams table!).
     '''
 
-    def __new__(cls):
+    def __new__(cls, *args, **kwargs):
         if not hasattr(cls, 'instance'):
-            cls.instance = super(ExcelWriter, cls).__new__(cls)
+            cls.instance = super(ExcelWriter, cls).__new__(cls, *args, **kwargs)
         return cls.instance
 
     def __init__(self, name, limits=[0, 0, 0, 0], min_quantity=[1, 1, 1, 1, 1]):
-        self.workbook = xlsxwriter.Workbook(f'/{name}/result.xlsx')
-        self.db = sqlite3.connect(f'/{name}/result.db')
+        self.workbook = xlsxwriter.Workbook(os.path.join(os.getcwd(), name, 'result.xlsx'))
+        self.db = sqlite3.connect(os.path.join(os.getcwd(), name, 'result.db'))
         self.cursor = self.db.cursor()
         self.limits = limits + [0] * (4 - len(limits))
         self.min_quantity = min_quantity + [1] * (5 - len(min_quantity))
@@ -56,7 +57,7 @@ class ExcelWriter:
         print('... top word bigrams sheet was written')
         print('End of writing main sheets.')
         print(
-            'Call additional functions for more sheets (e.g. "sheet_en_symb_bigrams()", \
+            'You can call additional functions for more sheets (e.g. "sheet_en_symb_bigrams()", \
             "sheet_ru_symb_bigrams()" or "yo_words()")'
         )
 

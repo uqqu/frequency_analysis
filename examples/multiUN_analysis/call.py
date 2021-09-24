@@ -3,26 +3,26 @@ from datetime import datetime
 from os import listdir
 from bs4 import BeautifulSoup
 
-import frequency
+import frequency_analysis
 
 
 file_list = listdir('multiUN/')
-clear_word_pattern = '[^a-zA-Z’\'-]|^[^a-zA-Z]+|[^a-zA-Z]+$'
+word_pattern = '[a-zA-Z]+(?:(?:-?[a-zA-Z]+)+|\'?[a-zA-Z]+)'
 allowed_symbols = [*range(32, 127)]
 
-analyze = frequency.Analysis.open(
+analyze = frequency_analysis.Analysis.open(
     mode='n',
-    clear_word_pattern=clear_word_pattern,
+    word_pattern=word_pattern,
     allowed_symbols=allowed_symbols,
 )
 
 for n, file in enumerate(file_list):
     with io.open('multiUN/' + file, mode='r', encoding='utf-8') as f:
         data = f.read()
-    bs_data = BeautifulSoup(data, "xml")
+    bs_data = BeautifulSoup(data, 'xml')
 
-    for sentence in bs_data.find_all("s"):
+    for sentence in bs_data.find_all('s'):
         analyze.count_all(sentence.text.split(), pos=True)
-    print(n)
+    print(n, file)
 analyze.final()
-print(datetime.now().strftime("%H:%M:%S"))
+print(datetime.now().strftime('%H:%M:%S'))

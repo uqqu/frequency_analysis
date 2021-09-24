@@ -6,7 +6,7 @@ import sqlite3
 from pathlib import Path
 from typing import List, Union
 
-from frequency_analyzer import db_create, results
+from frequency_analysis import db_create, results
 
 
 def commit(func):
@@ -28,13 +28,13 @@ class FrequencyAnalysis:
     User input:
         /all values are optional/
         name – the name for the analysis folder;
-        clear_word_pattern – regex pattern to clear the words from unnecessary symbols;
+        word_pattern – regex pattern to extract words from a sentence;
         allowed_symbols – symbols which will be taken into account in the process of analysis.
     '''
 
-    def __init__(self, name, clear_word_pattern, allowed_symbols, total_symbols, total_words, db):
+    def __init__(self, name, word_pattern, allowed_symbols, total_symbols, total_words, db):
         self.name = name
-        self.clear_word_pattern = clear_word_pattern
+        self.word_pattern = word_pattern
         self.allowed_symbols = allowed_symbols
         self.total_symbols = total_symbols
         self.total_words = total_words
@@ -70,7 +70,7 @@ class FrequencyAnalysis:
             Symbol bigrams counting – enabled by default;
             Word bigrams counting – enabled by default.
         '''
-        clear_word_list = [re.sub(self.clear_word_pattern, '', x).lower() for x in word_list]
+        clear_word_list = [y.lower() for x in word_list for y in re.findall(self.word_pattern, x)]
         for word, clear_word in zip(word_list, clear_word_list):
             if self.total_symbols == 0:
                 self.cursor.execute(
@@ -82,20 +82,20 @@ class FrequencyAnalysis:
                 )
             self.__count_symbols(word, clear_word, pos, symbol_bigram)
 
-        if cutted_clear_word_list := [x for x in clear_word_list if x]:
+        if cutted_clear_word_list := [x.replace("'", "''") for x in clear_word_list if x]:
             self.__count_words(cutted_clear_word_list, pos, word_bigram)
 
     @commit
     def count_words(self, word_list: list, pos=False, bigram=True):
-        '''Decorated wrapper for nested __count_words function.'''
-        clear_word_list = [re.sub(self.clear_word_pattern, '', x).lower() for x in word_list]
-        if cutted_clear_word_list := [x for x in clear_word_list if x]:
+        '''Decorated wrapper for user calling.'''
+        clear_word_list = [re.sub(self.word_pattern, '', x).lower() for x in word_list]
+        if cutted_clear_word_list := [x.replace("'", "''") for x in clear_word_list if x]:
             self.__count_words(cutted_clear_word_list, pos, bigram)
 
     @commit
     def count_symbols(self, word_list: list, pos=False, bigram=True):
-        '''Decorated wrapper for word-by-word function for symbol counting.'''
-        clear_word_list = [re.sub(self.clear_word_pattern, '', x).lower() for x in word_list]
+        '''Decorated wrapper for user calling.'''
+        clear_word_list = [re.sub(self.word_pattern, '', x).lower() for x in word_list]
 
         for word, clear_word in zip(word_list, clear_word_list):
             if self.total_symbols == 0:
@@ -119,7 +119,7 @@ class FrequencyAnalysis:
                 f'''
                 INSERT INTO words
                     (word, quantity, as_first, as_last {', position' if pos else ''})
-                VALUES ("{word}", 1, 0, 0 {f', {word_pos}' if pos else ''})
+                VALUES ('{word}', 1, 0, 0 {f', {word_pos}' if pos else ''})
                 ON CONFLICT (word) DO UPDATE SET quantity=quantity+1
                     {f', position=(position*quantity+{word_pos}) / (quantity+1)' if pos else ''};
                 '''
@@ -129,26 +129,27 @@ class FrequencyAnalysis:
                     f'''
                     INSERT INTO word_bigrams
                         (first_word, second_word, quantity {', position' if pos else ''})
-                    VALUES ("{last_word}", "{word}", 1 {f', {word_pos - 1}' if pos else ''})
+                    VALUES ('{last_word}', '{word}', 1 {f', {word_pos - 1}' if pos else ''})
                     ON CONFLICT (first_word, second_word) DO UPDATE SET quantity=quantity+1
                     {f', position=(position*quantity+{word_pos - 1}) / (quantity+1)' if pos else ''};
                     '''
                 )
             last_word = word
-        self.cursor.execute(
-            f'''
-            UPDATE words
-            SET as_first=as_first+1
-            WHERE word="{word_list[0]}";
-            '''
-        )
-        self.cursor.execute(
-            f'''
-            UPDATE words
-            SET as_last=as_last+1
-            WHERE word="{word_list[-1]}";
-            '''
-        )
+        if len(word_list) > 1 and not self.total_words:
+            self.cursor.execute(
+                f'''
+                UPDATE words
+                SET as_first=as_first+1
+                WHERE word='{word_list[0]}';
+                '''
+            )
+            self.cursor.execute(
+                f'''
+                UPDATE words
+                SET as_last=as_last+1
+                WHERE word='{word_list[-1]}';
+                '''
+            )
 
     def __count_symbols(self, word: str, clear_word: str, pos: bool, bigram: bool):
         '''Symbol/symbol bigram counting function.'''
@@ -162,7 +163,7 @@ class FrequencyAnalysis:
             if self.total_symbols > 0:
                 self.total_symbols -= 1
                 continue
-            if re.search(self.clear_word_pattern, chr(symb_ord)):
+            if re.search(self.word_pattern, chr(symb_ord)):
                 position = symb_pos - shift
             else:
                 shift += 1
@@ -189,7 +190,7 @@ class FrequencyAnalysis:
 
             last_symb_ord = symb_ord
 
-        if clear_word:
+        if clear_word and not self.total_symbols:
             self.cursor.execute(
                 f'''
                 UPDATE symbols
@@ -213,7 +214,7 @@ class Analysis:
     def open(
         name: str = 'frequency_analysis',
         mode: str = 'n',  # n – new file, a – append to existing, c – continue to existing
-        clear_word_pattern: str = '[^а-яА-ЯёЁa-zA-Z’\'-]|^[^а-яА-ЯёЁa-zA-Z]|[^а-яА-ЯёЁa-zA-Z]$',
+        word_pattern: str = '[a-zA-Zа-яА-ЯёЁ]+(?:(?:-?[a-zA-Zа-яА-ЯёЁ]+)+|\'?[a-zA-Zа-яА-ЯёЁ]+)',
         allowed_symbols: List[Union[int, str]] = [*range(32, 127), 1025, *range(1040, 1104), 1105],
         yo: bool = False,
     ):
@@ -224,23 +225,21 @@ class Analysis:
                 "Mode must be 'n' for new analysis, 'a' for append to existing "
                 "or 'c' to continue the previous analysis. If empty – works as 'n'."
             )
-        if mode == 'n' and os.path.isfile(f'./{name}/result.db'):
+        if mode == 'n' and os.path.isfile(os.path.join(os.getcwd(), name, 'result.db')):
             raise Exception(
                 f"DB file in the '{name}' folder already exist! Use mode 'a' "
                 "for append to existing, or 'c' to continue the previous analysis."
             )
-        if mode != 'n' and not os.path.isfile(f'./{name}/result.db'):
-            raise Exception(
-                "Pattern for cleaning words is broken. "
-                "Use mode 'n' (or leave it empty) to create a new analysis, "
-                "or set name of folder with existing DB."
-            )
-        try:
-            re.compile(clear_word_pattern)
-        except re.error as re_error:
+        if mode != 'n' and not os.path.isfile(os.path.join(os.getcwd(), name, 'result.db')):
             raise Exception(
                 f"DB file in the '{name}' folder is not exist! "
                 "Use mode 'n' to create a new analysis, or set name of folder with existing DB."
+            )
+        try:
+            re.compile(word_pattern)
+        except re.error as re_error:
+            raise Exception(
+                "Pattern for extracting words from a sentence is broken."
             ) from re_error
         if (
             not isinstance(allowed_symbols, (str, list))
@@ -256,7 +255,8 @@ class Analysis:
                 "If empty works as <base latin> + <russian cyrillic> + <numbers> + "
                 "<space> + '!\"#$%&'()*+,-./:;<>=?@[]\\^_`{}|~'."
             )
-        if yo and (not os.path.isfile('./yo.txt') or not os.path.isfile('./ye-yo.txt')):
+        if yo and (not (Path(__file__).parent / 'yo.txt').exists()
+            or not (Path(__file__).parent / 'ye-yo.txt').exists()):
             raise Exception(
                 "Yo mode require additional 'yo.txt' and 'ye-yo.txt' files near the script."
             )
@@ -264,10 +264,13 @@ class Analysis:
         if isinstance(allowed_symbols[0], str):
             allowed_symbols = [ord(x) for x in allowed_symbols]
 
-        Path(f'/{name}').mkdir(exist_ok=True)
+        try:
+            os.mkdir(os.path.join(os.getcwd(), name))
+        except FileExistsError:
+            pass
         total_words = 0
         total_symbols = 0
-        db = sqlite3.connect(f'/{name}/result.db')
+        db = sqlite3.connect(os.path.join(os.getcwd(), name, 'result.db'))
         cursor = db.cursor()
         if mode == 'n':
             db_create.create_new(db, allowed_symbols)
@@ -279,7 +282,7 @@ class Analysis:
 
         return FrequencyAnalysis(
             name,
-            clear_word_pattern,
+            word_pattern,
             allowed_symbols,
             total_symbols,
             total_words,
