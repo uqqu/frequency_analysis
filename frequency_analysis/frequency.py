@@ -3,10 +3,9 @@
 import os
 import re
 import sqlite3
-from pathlib import Path
 from typing import List, Union
 
-from frequency_analysis import db_create, results
+from frequency_analysis import db_create
 
 
 def commit(func):
@@ -27,8 +26,8 @@ class FrequencyAnalysis:
 
     User input:
         /all values are optional/
-        name – the name for the analysis folder;
-        word_pattern – regex pattern to extract words from a sentence;
+        name            – the name for the analysis folder;
+        word_pattern    – regex pattern to extract words from a sentence;
         allowed_symbols – symbols which will be taken into account in the process of analysis.
     '''
 
@@ -41,23 +40,6 @@ class FrequencyAnalysis:
         self.db = db
         self.cursor = db.cursor()
         self.counter = 0
-
-    def final(self):
-        '''Commit changes for latest data, which may be lost due to the previous decorator.'''
-        self.db.commit()
-
-    def excel_output(self, limits=[0, 0, 0, 0], min_quantity=[1, 1, 1, 1, 1]):
-        '''Open instance for writing results to excel.
-
-        User input:
-            limits  – list – max number of elements to be added to the sheet (0 – unlimited))
-                    – [symbols, symbol bigrams top, words top, word bigrams top]
-                    – default values – [0, 0, 0, 0];
-            min_quantity – list – min number of entries for each element to take it into account)
-                    – [[same as on 'limits'], +symbol bigrams table]
-                    – default values – [1, 1, 1, 1, 1].
-        '''
-        return results.ExcelWriter(self.name, limits, min_quantity)
 
     @commit
     def count_all(self, word_list: list, pos=False, symbol_bigram=True, word_bigram=True):
@@ -131,7 +113,7 @@ class FrequencyAnalysis:
                         (first_word, second_word, quantity {', position' if pos else ''})
                     VALUES ('{last_word}', '{word}', 1 {f', {word_pos - 1}' if pos else ''})
                     ON CONFLICT (first_word, second_word) DO UPDATE SET quantity=quantity+1
-                    {f', position=(position*quantity+{word_pos - 1}) / (quantity+1)' if pos else ''};
+                    {f', position=(position*quantity+{word_pos-1}) / (quantity+1)' if pos else ''};
                     '''
                 )
             last_word = word
@@ -184,7 +166,7 @@ class FrequencyAnalysis:
                         (first_symb_ord, second_symb_ord, quantity {', position' if pos else ''})
                     VALUES ({last_symb_ord}, {symb_ord}, 1 {f', {position - 1}' if pos else ''})
                     ON CONFLICT (first_symb_ord, second_symb_ord) DO UPDATE SET quantity=quantity+1
-                    {f', position=(position*quantity+{position - 1}) / (quantity+1)' if pos else ''};
+                    {f', position=(position*quantity+{position-1}) / (quantity+1)' if pos else ''};
                     '''
                 )
 
@@ -208,45 +190,60 @@ class FrequencyAnalysis:
 
 
 class Analysis:
-    '''Validation factory method class.'''
+    '''Validation factory method class as context manager.'''
 
-    @staticmethod
-    def open(
+    def __init__(
+        self,
         name: str = 'frequency_analysis',
         mode: str = 'n',  # n – new file, a – append to existing, c – continue to existing
         word_pattern: str = '[a-zA-Zа-яА-ЯёЁ]+(?:(?:-?[a-zA-Zа-яА-ЯёЁ]+)+|\'?[a-zA-Zа-яА-ЯёЁ]+)',
-        allowed_symbols: List[Union[int, str]] = [*range(32, 127), 1025, *range(1040, 1104), 1105],
+        allowed_symbols: List[Union[int, str]] = [
+            *range(32, 127),
+            1025,
+            *range(1040, 1104),
+            1105,
+        ],
         yo: bool = False,
     ):
-        if not re.search('^[a-zа-яё0-9_.@() -]+$', name, re.I):
-            raise Exception(f"Foldername '{name}' is unvalid. Please, enter other.")
-        if mode not in ('n', 'a', 'c'):
+        self.name = name
+        self.mode = mode
+        self.word_pattern = word_pattern
+        self.allowed_symbols = allowed_symbols
+        self.yo = yo
+        self.db = None
+
+    def __enter__(self):
+        if not re.search('^[a-zа-яё0-9_.@() -]+$', self.name, re.I):
+            raise Exception(f"Foldername '{self.name}' is unvalid. Please, enter other.")
+        if self.mode not in ('n', 'a', 'c'):
             raise Exception(
                 "Mode must be 'n' for new analysis, 'a' for append to existing "
                 "or 'c' to continue the previous analysis. If empty – works as 'n'."
             )
-        if mode == 'n' and os.path.isfile(os.path.join(os.getcwd(), name, 'result.db')):
+        if self.mode == 'n' and os.path.isfile(os.path.join(os.getcwd(), self.name, 'result.db')):
             raise Exception(
-                f"DB file in the '{name}' folder already exist! Use mode 'a' "
+                f"DB file in the '{self.name}' folder already exist! Use mode 'a' "
                 "for append to existing, or 'c' to continue the previous analysis."
             )
-        if mode != 'n' and not os.path.isfile(os.path.join(os.getcwd(), name, 'result.db')):
+        if self.mode != 'n' and not os.path.isfile(
+            os.path.join(os.getcwd(), self.name, 'result.db')
+        ):
             raise Exception(
-                f"DB file in the '{name}' folder is not exist! "
+                f"DB file in the '{self.name}' folder is not exist! "
                 "Use mode 'n' to create a new analysis, or set name of folder with existing DB."
             )
         try:
-            re.compile(word_pattern)
+            re.compile(self.word_pattern)
         except re.error as re_error:
             raise Exception(
                 "Pattern for extracting words from a sentence is broken."
             ) from re_error
         if (
-            not isinstance(allowed_symbols, (str, list))
-            or isinstance(allowed_symbols, list)
+            not isinstance(self.allowed_symbols, (str, list))
+            or isinstance(self.allowed_symbols, list)
             and not (
-                all(isinstance(x, int) for x in allowed_symbols)
-                or all(isinstance(x, str) for x in allowed_symbols)
+                all(isinstance(x, int) for x in self.allowed_symbols)
+                or all(isinstance(x, str) for x in self.allowed_symbols)
             )
         ):
             raise Exception(
@@ -255,39 +252,45 @@ class Analysis:
                 "If empty works as <base latin> + <russian cyrillic> + <numbers> + "
                 "<space> + '!\"#$%&'()*+,-./:;<>=?@[]\\^_`{}|~'."
             )
-        if yo and (not (Path(__file__).parent / 'yo.txt').exists()
-            or not (Path(__file__).parent / 'ye-yo.txt').exists()):
+        if self.yo and (
+            not os.path.isfile(os.path.join(os.getcwd(), 'yo.txt'))
+            or not os.path.isfile(os.path.join(os.getcwd(), 'ye-yo.txt'))
+        ):
             raise Exception(
                 "Yo mode require additional 'yo.txt' and 'ye-yo.txt' files near the script."
             )
 
-        if isinstance(allowed_symbols[0], str):
-            allowed_symbols = [ord(x) for x in allowed_symbols]
+        if isinstance(self.allowed_symbols[0], str):
+            self.allowed_symbols = [ord(x) for x in self.allowed_symbols]
 
         try:
-            os.mkdir(os.path.join(os.getcwd(), name))
+            os.mkdir(os.path.join(os.getcwd(), self.name))
         except FileExistsError:
             pass
         total_words = 0
         total_symbols = 0
-        db = sqlite3.connect(os.path.join(os.getcwd(), name, 'result.db'))
-        cursor = db.cursor()
-        if mode == 'n':
-            db_create.create_new(db, allowed_symbols)
-            if yo:
-                db_create.yo_mode(db)
-        elif mode == 'c':
+        self.db = sqlite3.connect(os.path.join(os.getcwd(), self.name, 'result.db'))
+        cursor = self.db.cursor()
+        if self.mode == 'n':
+            db_create.create_new(self.db, self.allowed_symbols)
+            if self.yo:
+                db_create.yo_mode(self.db)
+        elif self.mode == 'c':
             total_words = cursor.execute('SELECT SUM(quantity) FROM words;').fetchone()[0]
             total_symbols = cursor.execute('SELECT SUM(quantity) FROM symbols;').fetchone()[0]
 
         return FrequencyAnalysis(
-            name,
-            word_pattern,
-            allowed_symbols,
+            self.name,
+            self.word_pattern,
+            self.allowed_symbols,
             total_symbols,
             total_words,
-            db,
+            self.db,
         )
+
+    def __exit__(self, type_, value, traceback):
+        self.db.commit()
+        self.db.close()
 
 
 __all__ = ['Analysis']
