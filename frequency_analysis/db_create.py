@@ -98,21 +98,24 @@ def yo_mode(db):
             cursor.execute(
                 f'''
                 INSERT INTO words (word, quantity, as_first, as_last, position)
-                VALUES ("{yo_word}", 0, 0, 0, 1);
+                VALUES ("{yo_word}", 0, 0, 0, 1)
+                ON CONFLICT DO NOTHING;
                 '''
             )
             ye_word = yo_word.replace('ё', 'е')
             cursor.execute(
                 f'''
                 INSERT INTO words (word, quantity, as_first, as_last, position)
-                VALUES ("{ye_word}", 0, 0, 0, 1);
+                VALUES ("{ye_word}", 0, 0, 0, 1)
+                ON CONFLICT DO NOTHING;
                 '''
             )
 
             cursor.execute(
                 f'''
                 INSERT INTO yo_words (yo_word, ye_word, mandatory)
-                VALUES ("{yo_word}", "{ye_word}", 1);
+                VALUES ("{yo_word}", "{ye_word}", 1)
+                ON CONFLICT DO NOTHING;
                 '''
             )
 
@@ -122,20 +125,23 @@ def yo_mode(db):
             cursor.execute(
                 f'''
                 INSERT INTO words (word, quantity, as_first, as_last, position)
-                VALUES ("{yo_word}", 0, 0, 0, 1);
+                VALUES ("{yo_word}", 0, 0, 0, 1)
+                ON CONFLICT DO NOTHING;
                 '''
             )
             ye_word = line.strip().replace('ё', 'е')
             cursor.execute(
                 f'''
                 INSERT INTO words (word, quantity, as_first, as_last, position)
-                VALUES ("{yo_word}", 0, 0, 0, 1);
+                VALUES ("{yo_word}", 0, 0, 0, 1)
+                ON CONFLICT DO NOTHING;
                 '''
             )
 
             cursor.execute(
                 f'''
                 INSERT INTO yo_words (yo_word, ye_word, mandatory)
-                VALUES ("{yo_word}", "{ye_word}", 0);
+                VALUES ("{yo_word}", "{ye_word}", 0)
+                ON CONFLICT DO NOTHING;
                 '''
             )

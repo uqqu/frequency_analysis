@@ -190,7 +190,7 @@ class FrequencyAnalysis:
 
 
 class Analysis:
-    '''Validation factory method class as context manager.'''
+    '''Context manager with data validation for end-user FrequencyAnalysis class.'''
 
     def __init__(
         self,
