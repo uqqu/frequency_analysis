@@ -18,3 +18,10 @@ with frequency_analysis.Analysis(mode='n', yo=True) as analyze:
             analyze.count_all(sentence.text.split(), pos=True)
         print(n, file)
 print(datetime.now().strftime('%H:%M:%S'))
+
+with frequency_analysis.Result() as res:
+    res.treat(limits=[1000]*4, min_quantity=[10]*5)
+    res.sheet_custom_symb(''.join([chr(x) for x in range(1072, 1104)] + [chr(1105)]))
+    res.sheet_ru_symb_bigrams()
+    res.sheet_yo_words()
+print(datetime.now().strftime('%H:%M:%S'))
