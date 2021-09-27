@@ -52,7 +52,7 @@ class FrequencyAnalysis:
             Symbol bigrams counting – enabled by default;
             Word bigrams counting – enabled by default.
         '''
-        clear_word_list = [y.lower() for x in word_list for y in re.findall(self.word_pattern, x)]
+        clear_word_list = [y for x in word_list for y in re.findall(self.word_pattern, x)]
         for word, clear_word in zip(word_list, clear_word_list):
             if self.total_symbols == 0:
                 self.cursor.execute(
@@ -70,14 +70,14 @@ class FrequencyAnalysis:
     @commit
     def count_words(self, word_list: list, pos=False, bigram=True):
         '''Decorated wrapper for user calling.'''
-        clear_word_list = [re.sub(self.word_pattern, '', x).lower() for x in word_list]
+        clear_word_list = [re.sub(self.word_pattern, '', x) for x in word_list]
         if cutted_clear_word_list := [x.replace("'", "''") for x in clear_word_list if x]:
             self.__count_words(cutted_clear_word_list, pos, bigram)
 
     @commit
     def count_symbols(self, word_list: list, pos=False, bigram=True):
         '''Decorated wrapper for user calling.'''
-        clear_word_list = [re.sub(self.word_pattern, '', x).lower() for x in word_list]
+        clear_word_list = [re.sub(self.word_pattern, '', x) for x in word_list]
 
         for word, clear_word in zip(word_list, clear_word_list):
             if self.total_symbols == 0:
@@ -101,7 +101,7 @@ class FrequencyAnalysis:
                 f'''
                 INSERT INTO words
                     (word, quantity, as_first, as_last {', position' if pos else ''})
-                VALUES ('{word}', 1, 0, 0 {f', {word_pos}' if pos else ''})
+                VALUES ('{word.lower()}', 1, 0, 0 {f', {word_pos}' if pos else ''})
                 ON CONFLICT (word) DO UPDATE SET quantity=quantity+1
                     {f', position=(position*quantity+{word_pos}) / (quantity+1)' if pos else ''};
                 '''
@@ -111,25 +111,25 @@ class FrequencyAnalysis:
                     f'''
                     INSERT INTO word_bigrams
                         (first_word, second_word, quantity {', position' if pos else ''})
-                    VALUES ('{last_word}', '{word}', 1 {f', {word_pos - 1}' if pos else ''})
+                    VALUES ('{last_word}', '{word.lower()}', 1 {f', {word_pos - 1}' if pos else ''})
                     ON CONFLICT (first_word, second_word) DO UPDATE SET quantity=quantity+1
                     {f', position=(position*quantity+{word_pos-1}) / (quantity+1)' if pos else ''};
                     '''
                 )
-            last_word = word
+            last_word = word.lower()
         if len(word_list) > 1 and not self.total_words:
             self.cursor.execute(
                 f'''
                 UPDATE words
                 SET as_first=as_first+1
-                WHERE word='{word_list[0]}';
+                WHERE word='{word_list[0].lower()}';
                 '''
             )
             self.cursor.execute(
                 f'''
                 UPDATE words
                 SET as_last=as_last+1
-                WHERE word='{word_list[-1]}';
+                WHERE word='{word_list[-1].lower()}';
                 '''
             )
 

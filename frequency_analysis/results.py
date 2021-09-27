@@ -28,14 +28,6 @@ class ExcelWriter:
             self.cursor.execute(f'SELECT AVG(position) FROM {x};').fetchone()[0]
             for x in ('symbols', 'symbol_bigrams', 'words', 'word_bigrams')
         ]
-        self.count_list = [
-            self.cursor.execute(f'SELECT COUNT(*) FROM {x};').fetchone()[0]
-            for x in ('symbols', 'symbol_bigrams', 'words', 'word_bigrams')
-        ]
-        self.sum_list = [
-            self.cursor.execute(f'SELECT SUM(quantity) FROM {x};').fetchone()[0]
-            for x in ('symbols', 'symbol_bigrams', 'words', 'word_bigrams')
-        ]
 
     def __add_main_style(self, sheet, f_width=5, a_width=12, two_column=False):
         '''Add main row/column formating (width, bold, centred, freeze).'''
@@ -87,13 +79,30 @@ class ExcelWriter:
 
     def sheet_stats(self):
         '''Create main statistic of analysis. Is called from main "treat()".'''
+        count_list = [
+            self.cursor.execute(f'SELECT COUNT(*) FROM {x};').fetchone()[0]
+            for x in ('symbols', 'symbol_bigrams', 'words', 'word_bigrams')
+        ]
+        sum_list = [
+            self.cursor.execute(f'SELECT SUM(quantity) FROM {x};').fetchone()[0]
+            for x in ('symbols', 'symbol_bigrams', 'words', 'word_bigrams')
+        ]
+        avg_pos_list = [
+            self.cursor.execute(
+                f'SELECT SUM(quantity*position)/SUM(quantity) FROM {x} \
+                        {"WHERE ord != 32" if x == "symbols" else ""};'
+            ).fetchone()[0]
+            for x in ('symbols', 'symbol_bigrams', 'words', 'word_bigrams')
+        ]
         stats = self.workbook.add_worksheet('Stats')
         self.__add_main_style(stats, 15, 15)
         stats.write(0, 1, 'Total')
-        stats.write(0, 2, 'Count')
+        stats.write(0, 2, 'Quantity')
+        stats.write(0, 3, 'Avg. position')
         stats.write_column(1, 0, ('Symbols', 'Symbol bigrams', 'Words', 'Word bigrams'))
-        stats.write_column(1, 1, self.count_list, self.f_int)
-        stats.write_column(1, 2, self.sum_list, self.f_int)
+        stats.write_column(1, 1, count_list, self.f_int)
+        stats.write_column(1, 2, sum_list, self.f_int)
+        stats.write_column(1, 3, avg_pos_list, self.f_float)
 
     def sheet_symbols(self, limit=0, min_quantity=1):
         '''Create top-list of all analyzed symbols by quantity. Is called from main "treat()".'''
@@ -116,7 +125,7 @@ class ExcelWriter:
         for row, symb in enumerate(self.cursor.fetchall(), 1):
             symbols.write_string(row, 0, chr(symb[0]))
             symbols.write_number(row, 1, symb[1], self.f_int)
-            symbols.write_number(row, 2, symb[1] / self.sum_list[0], self.f_percent)
+            symbols.write_formula(row, 2, f'=B{row+1}/SUM(B:B)', self.f_percent)
             if symb[0] != 32:
                 symbols.write_number(row, 3, symb[2], self.f_int)
                 symbols.write_number(row, 4, symb[3], self.f_int)
@@ -155,7 +164,7 @@ class ExcelWriter:
             symbol_bigrams_top.write_string(row, 0, chr(bigr[0]))
             symbol_bigrams_top.write_string(row, 1, chr(bigr[1]))
             symbol_bigrams_top.write_number(row, 2, bigr[2], self.f_int)
-            symbol_bigrams_top.write_number(row, 3, bigr[2] / self.sum_list[1], self.f_percent)
+            symbol_bigrams_top.write_formula(row, 3, f'=C{row+1}/SUM(C:C)', self.f_percent)
             if self.pos_list[1]:
                 symbol_bigrams_top.write_number(row, 4, bigr[3], self.f_float)
 
@@ -204,7 +213,7 @@ class ExcelWriter:
         for row, word in enumerate(self.cursor.fetchall(), 1):
             top_words.write_string(row, 0, word[0])
             top_words.write_number(row, 1, word[1], self.f_int)
-            top_words.write_number(row, 2, word[1] / self.sum_list[2], self.f_percent)
+            top_words.write_formula(row, 2, f'=B{row+1}/SUM(B:B)', self.f_percent)
             top_words.write_number(row, 3, word[2], self.f_int)
             top_words.write_number(row, 4, word[3], self.f_int)
             if self.pos_list[2]:
@@ -232,7 +241,7 @@ class ExcelWriter:
             word_bigrams_top.write_string(row, 0, bigr[0])
             word_bigrams_top.write_string(row, 1, bigr[1])
             word_bigrams_top.write_number(row, 2, bigr[2], self.f_int)
-            word_bigrams_top.write_number(row, 3, bigr[2] / self.sum_list[3], self.f_percent)
+            word_bigrams_top.write_formula(row, 3, f'=C{row+1}/SUM(C:C)', self.f_percent)
             if self.pos_list[3]:
                 word_bigrams_top.write_number(row, 4, bigr[3], self.f_float)
 
@@ -257,12 +266,11 @@ class ExcelWriter:
             ORDER BY quantity DESC, ord ASC;
             '''
         )
-        res = self.cursor.fetchall()
-        sum_quantity = sum([x[1] for x in res])
-        for row, symb in enumerate(res, 1):
+
+        for row, symb in enumerate(self.cursor.fetchall(), 1):
             custom_top_symb.write_string(row, 0, chr(symb[0]))
             custom_top_symb.write_number(row, 1, symb[1], self.f_int)
-            custom_top_symb.write_number(row, 2, symb[1] / sum_quantity, self.f_percent)
+            custom_top_symb.write_formula(row, 2, f'=B{row+1}/SUM(B:B)', self.f_percent)
             custom_top_symb.write_number(row, 3, symb[2], self.f_int)
             custom_top_symb.write_number(row, 4, symb[3], self.f_int)
             if self.pos_list[0] != 1:
@@ -277,6 +285,7 @@ class ExcelWriter:
             }
         )
         custom_top_symb.insert_chart('H2', chart)
+        print('... custom symbols top sheet was written.')
 
     def sheet_en_symb_bigrams(self):
         '''Create two-dimensional bigrams table only for English alphabet symbols.
@@ -317,6 +326,7 @@ class ExcelWriter:
             en_symb_bigrams.write_row(row, 1, row_values_list, self.f_int)
         f_cond_rules = {'type': 'top', 'value': 10, 'criteria': '%', 'format': self.f_red_bg}
         en_symb_bigrams.conditional_format(1, 1, 27, 27, f_cond_rules)
+        print('... English letter bigrams sheet was written.')
 
     def sheet_ru_symb_bigrams(self):
         '''Create two-dimensional bigrams table only for Russian alphabet symbols.
@@ -361,41 +371,55 @@ class ExcelWriter:
             ru_symb_bigrams.write_row(row, 1, row_values_list, self.f_int)
         f_cond_rules = {'type': 'top', 'value': 10, 'criteria': '%', 'format': self.f_red_bg}
         ru_symb_bigrams.conditional_format(1, 1, 34, 34, f_cond_rules)
+        print('... Russian letter bigrams sheet was written.')
 
     def sheet_yo_words(self, limit=0, min_quantity=1):
         '''Create sheet with quantity of entries for both of ye/yo word writing.
 
         !This function is not called from main "treat()"!
         '''
-        yo_words = self.workbook.add_worksheet('Ye/yo words')
+        yo_words = self.workbook.add_worksheet('Ye-yo words')
         yo_words.set_tab_color('yellow')
-        self.__add_main_style(yo_words, 15, 12, True)
-        yo_words.write_row(0, 0, ('Yo word', 'Ye word', 'Yo mandatory?', 'Yo count', 'Ye count'))
+        self.__add_main_style(yo_words, 15, 15, True)
+        yo_words.write_row(
+            0, 0, ('Ё вариант', 'Е вариант', 'Ё обязательна?', 'Количество с Ё', 'Количество с Е')
+        )
 
         self.cursor.execute(
             f'''
             SELECT
-                yo_word, ye_word, mandatory,
-                word.quantity as yo_quantity,
-                word.quantity as ye_quantity,
-                SUM(yo_quantity, ye_quantity) as sum
+                yo_word, b.ye_word, mandatory,
+                words.quantity as yo_quantity, b.ye_quantity
             FROM yo_words
-                INNER JOIN words ON yo_words.yo_word = words.word
+            INNER JOIN words ON yo_words.yo_word = words.word
+            LEFT JOIN (
+                SELECT ye_word, words.quantity as ye_quantity
+                FROM yo_words
                 INNER JOIN words ON yo_words.ye_word = words.word
-            WHERE sum >= {min_quantity}
-            ORDER BY sum
+            ) b ON b.ye_word=yo_words.ye_word
+            WHERE (yo_quantity + b.ye_quantity) >= {min_quantity}
+            ORDER BY (yo_quantity + b.ye_quantity) DESC
             {f'LIMIT {limit}' if limit else ''};
             '''
         )
 
+        misspell_counter = [0, 0]
+
         for row, pair in enumerate(self.cursor.fetchall(), 1):
             yo_words.write_string(row, 0, pair[0])
             yo_words.write_string(row, 1, pair[1])
-            yo_words.write_string(row, 2, ('Mandatory' if pair[2] else 'Probably'))
-            self.cursor.execute(f"SELECT quantity FROM words WHERE word='{pair[0]}';")
-            yo_words.write_number(row, 3, self.cursor.fetchone()[0], self.f_int)
-            self.cursor.execute(f"SELECT quantity FROM words WHERE word='{pair[1]}';")
-            yo_words.write_number(row, 4, self.cursor.fetchone()[0], self.f_int)
+            yo_words.write_string(row, 2, ('Да' if pair[2] else 'Возможна'), self.f_bold)
+            yo_words.write_number(row, 3, pair[3], self.f_int)
+            yo_words.write_number(row, 4, pair[4], self.f_int)
+            misspell_counter[pair[2]] += pair[4]
+        yo_words.write_string('G2', 'Ошибочная Е', self.f_bold)
+        yo_words.write_number('H2', misspell_counter[0])
+        yo_words.write_string('G3', 'Возможная Ё', self.f_bold)
+        yo_words.write_number('H3', misspell_counter[1])
+        yo_words.write_string('G4', 'Правильная Ё', self.f_bold)
+        yo_words.write_formula('H4', '=SUM(D:D)')
+
+        print('... Russian ye/yo words compare sheet was written.')
 
 
 class Result:
