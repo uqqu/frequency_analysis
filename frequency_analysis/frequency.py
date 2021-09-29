@@ -40,6 +40,19 @@ class FrequencyAnalysis:
         self.db = db
         self.cursor = db.cursor()
         self.counter = 0
+        self.space = ' ' in self.allowed_symbols
+
+    def __create_clear_word_list(self, word_list):
+        shift = 0
+        clear_word_list = []
+        for n, word in enumerate(word_list[:], 1):
+            if res := re.findall(self.word_pattern, word):
+                [clear_word_list.append(x) for x in res]
+                [word_list.insert(n+shift, '') for _ in range(len(res)-1)]
+                shift += len(res)-1
+            else:
+                clear_word_list.append('')
+        return clear_word_list
 
     @commit
     def count_all(self, word_list: list, pos=False, symbol_bigram=True, word_bigram=True):
@@ -52,14 +65,14 @@ class FrequencyAnalysis:
             Symbol bigrams counting – enabled by default;
             Word bigrams counting – enabled by default.
         '''
-        clear_word_list = [y for x in word_list for y in re.findall(self.word_pattern, x)]
+        clear_word_list = self.__create_clear_word_list(word_list)
         for word, clear_word in zip(word_list, clear_word_list):
-            if self.total_symbols == 0:
+            if self.total_symbols == 0 and self.space:
                 self.cursor.execute(
                     '''
                     UPDATE symbols
                     SET quantity=quantity+1
-                    WHERE ord=32;
+                    WHERE chr=' ';
                     '''
                 )
             self.__count_symbols(word, clear_word, pos, symbol_bigram)
@@ -70,22 +83,20 @@ class FrequencyAnalysis:
     @commit
     def count_words(self, word_list: list, pos=False, bigram=True):
         '''Decorated wrapper for user calling.'''
-        clear_word_list = [re.sub(self.word_pattern, '', x) for x in word_list]
+        clear_word_list = self.__create_clear_word_list(word_list)
         if cutted_clear_word_list := [x.replace("'", "''") for x in clear_word_list if x]:
             self.__count_words(cutted_clear_word_list, pos, bigram)
 
     @commit
     def count_symbols(self, word_list: list, pos=False, bigram=True):
         '''Decorated wrapper for user calling.'''
-        clear_word_list = [re.sub(self.word_pattern, '', x) for x in word_list]
-
-        for word, clear_word in zip(word_list, clear_word_list):
-            if self.total_symbols == 0:
+        for word, clear_word in zip(word_list, self.__create_clear_word_list(word_list)):
+            if self.total_symbols == 0 and self.space:
                 self.cursor.execute(
                     '''
                     UPDATE symbols
                     SET quantity=quantity+1
-                    WHERE ord=32;
+                    WHERE chr=' ';
                     '''
                 )
             self.__count_symbols(word, clear_word, pos, bigram)
@@ -110,8 +121,10 @@ class FrequencyAnalysis:
                 self.cursor.execute(
                     f'''
                     INSERT INTO word_bigrams
-                        (first_word, second_word, quantity {', position' if pos else ''})
-                    VALUES ('{last_word}', '{word.lower()}', 1 {f', {word_pos - 1}' if pos else ''})
+                        (first_word, second_word, quantity, as_first, as_last
+                            {', position' if pos else ''})
+                    VALUES ('{last_word}', '{word.lower()}', 1, 0, 0
+                        {f', {word_pos-1}' if pos else ''})
                     ON CONFLICT (first_word, second_word) DO UPDATE SET quantity=quantity+1
                     {f', position=(position*quantity+{word_pos-1}) / (quantity+1)' if pos else ''};
                     '''
@@ -132,61 +145,98 @@ class FrequencyAnalysis:
                 WHERE word='{word_list[-1].lower()}';
                 '''
             )
+            if len(word_list) > 2 and bigram:
+                self.cursor.execute(
+                    f'''
+                    UPDATE word_bigrams
+                    SET as_first=as_first+1
+                    WHERE first_word='{word_list[0].lower()}'
+                        AND second_word='{word_list[1].lower()}';
+                    '''
+                )
+                self.cursor.execute(
+                    f'''
+                    UPDATE word_bigrams
+                    SET as_last=as_last+1
+                    WHERE first_word='{word_list[-2].lower()}'
+                        AND second_word='{word_list[-1].lower()}';
+                    '''
+                )
 
     def __count_symbols(self, word: str, clear_word: str, pos: bool, bigram: bool):
         '''Symbol/symbol bigram counting function.'''
-        last_symb_ord = None
+        last_symb = None
         shift = 0
         for symb_pos, symb in enumerate(word, 1):
-            symb_ord = ord(symb)
-            if symb_ord not in self.allowed_symbols:
-                last_symb_ord = None
+            if symb not in self.allowed_symbols:
+                last_symb = None
                 continue
             if self.total_symbols > 0:
                 self.total_symbols -= 1
                 continue
-            if re.search(self.word_pattern, chr(symb_ord)):
+            if re.search(self.word_pattern, symb):
                 position = symb_pos - shift
             else:
                 shift += 1
                 position = symb_pos
+            symb = symb.replace("'", "''")
             self.cursor.execute(
                 f'''
                 UPDATE symbols
                 SET quantity=quantity+1
-                {f', position=(position*quantity+{position}) / (quantity+1)' if pos else ''}
-                WHERE ord={symb_ord};
+                    {f', position=(position*quantity+{position}) / (quantity+1)' if pos else ''}
+                WHERE chr='{symb}';
                 '''
             )
 
-            if last_symb_ord and bigram:
+            if last_symb and bigram:
                 self.cursor.execute(
                     f'''
                     INSERT INTO symbol_bigrams
-                        (first_symb_ord, second_symb_ord, quantity {', position' if pos else ''})
-                    VALUES ({last_symb_ord}, {symb_ord}, 1 {f', {position - 1}' if pos else ''})
-                    ON CONFLICT (first_symb_ord, second_symb_ord) DO UPDATE SET quantity=quantity+1
+                        (first_symb, second_symb, quantity, as_first, as_last
+                            {', position' if pos else ''})
+                    VALUES ('{last_symb}', '{symb}', 1, 0, 0 {f', {position - 1}' if pos else ''})
+                    ON CONFLICT (first_symb, second_symb)
+                        DO UPDATE SET quantity=quantity+1
                     {f', position=(position*quantity+{position-1}) / (quantity+1)' if pos else ''};
                     '''
                 )
 
-            last_symb_ord = symb_ord
+            last_symb = symb
 
-        if clear_word and not self.total_symbols:
+        if len(clear_word) > 1 and not self.total_symbols:
             self.cursor.execute(
                 f'''
                 UPDATE symbols
                 SET as_first=as_first+1
-                WHERE ord={ord(clear_word[0])};
+                WHERE chr='{clear_word[0]}';
                 '''
             )
             self.cursor.execute(
                 f'''
                 UPDATE symbols
                 SET as_last=as_last+1
-                WHERE ord={ord(clear_word[-1])};
+                WHERE chr='{clear_word[-1]}';
                 '''
             )
+            if len(clear_word) > 2 and bigram:
+                values = [x.replace("'", "''") for x in clear_word]
+                if values[0] in self.allowed_symbols and values[1] in self.allowed_symbols:
+                    self.cursor.execute(
+                        f'''
+                        UPDATE symbol_bigrams
+                        SET as_first=as_first+1
+                        WHERE first_symb='{values[0]}' AND second_symb='{values[1]}';
+                        '''
+                    )
+                if values[-1] in self.allowed_symbols and values[-2] in self.allowed_symbols:
+                    self.cursor.execute(
+                        f'''
+                        UPDATE symbol_bigrams
+                        SET as_last=as_last+1
+                        WHERE first_symb='{values[-2]}' AND second_symb='{values[-1]}'
+                        '''
+                    )
 
 
 class Analysis:
@@ -196,13 +246,9 @@ class Analysis:
         self,
         name: str = 'frequency_analysis',
         mode: str = 'n',  # n – new file, a – append to existing, c – continue to existing
-        word_pattern: str = '[a-zA-Zа-яА-ЯёЁ]+(?:(?:-?[a-zA-Zа-яА-ЯёЁ]+)+|\'?[a-zA-Zа-яА-ЯёЁ]+)',
-        allowed_symbols: List[Union[int, str]] = [
-            *range(32, 127),
-            1025,
-            *range(1040, 1104),
-            1105,
-        ],
+        word_pattern: str = \
+        '[a-zA-Zа-яА-ЯёЁ]+(?:(?:-?[a-zA-Zа-яА-ЯёЁ]+)+|\'?[a-zA-Zа-яА-ЯёЁ]+)|[a-zA-Zа-яА-ЯёЁ]',
+        allowed_symbols: List[Union[int, str]] = [*range(32, 127), 1025, *range(1040, 1104), 1105],
         yo: bool = False,
     ):
         self.name = name
@@ -260,8 +306,8 @@ class Analysis:
                 "Yo mode require additional 'yo.txt' and 'ye-yo.txt' files near the script."
             )
 
-        if isinstance(self.allowed_symbols[0], str):
-            self.allowed_symbols = [ord(x) for x in self.allowed_symbols]
+        if isinstance(self.allowed_symbols[0], int):
+            self.allowed_symbols = [chr(x) for x in self.allowed_symbols]
 
         try:
             os.mkdir(os.path.join(os.getcwd(), self.name))
@@ -280,12 +326,7 @@ class Analysis:
             total_symbols = cursor.execute('SELECT SUM(quantity) FROM symbols;').fetchone()[0]
 
         return FrequencyAnalysis(
-            self.name,
-            self.word_pattern,
-            self.allowed_symbols,
-            total_symbols,
-            total_words,
-            self.db,
+            self.name, self.word_pattern, self.allowed_symbols, total_symbols, total_words, self.db
         )
 
     def __exit__(self, type_, value, traceback):
