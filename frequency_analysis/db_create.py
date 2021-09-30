@@ -8,8 +8,8 @@ def create_new(db, allowed_symbols):
     cursor = db.cursor()
     cursor.execute(
         '''
-        CREATE TABLE IF NOT EXISTS symbols (
-            ord INTEGER PRIMARY KEY,
+        CREATE TABLE symbols (
+            chr TEXT PRIMARY KEY,
             quantity INTEGER NOT NULL,
             as_first INTEGER NOT NULL,
             as_last INTEGER NOT NULL,
@@ -20,15 +20,17 @@ def create_new(db, allowed_symbols):
     cursor.execute(
         '''
         CREATE TABLE symbol_bigrams (
-            first_symb_ord INTEGER,
-            second_symb_ord INTEGER,
+            first_symb TEXT,
+            second_symb TEXT,
             quantity INTEGER NOT NULL,
+            as_first INTEGER NOT NULL,
+            as_last INTEGER NOT NULL,
             position REAL,
-            PRIMARY KEY (first_symb_ord, second_symb_ord),
-            FOREIGN KEY (first_symb_ord)
-                REFERENCES symbols (ord),
-            FOREIGN KEY (second_symb_ord)
-                REFERENCES symbols (ord)
+            PRIMARY KEY (first_symb, second_symb),
+            FOREIGN KEY (first_symb)
+                REFERENCES symbols (chr),
+            FOREIGN KEY (second_symb)
+                REFERENCES symbols (chr)
         ) WITHOUT ROWID;
         '''
     )
@@ -49,6 +51,8 @@ def create_new(db, allowed_symbols):
             first_word TEXT,
             second_word TEXT,
             quantity INTEGER NOT NULL,
+            as_first INTEGER NOT NULL,
+            as_last INTEGER NOT NULL,
             position REAL,
             PRIMARY KEY (first_word, second_word),
             FOREIGN KEY (first_word)
@@ -61,11 +65,13 @@ def create_new(db, allowed_symbols):
 
     db.commit()
 
-    for symb_ord in allowed_symbols:
+    for symb in allowed_symbols:
+        symb = symb.replace("'", "''")
         cursor.execute(
             f'''
-            INSERT INTO symbols (ord, quantity, as_first, as_last, position)
-            VALUES ("{symb_ord}", 0, 0, 0, 1);
+            INSERT INTO symbols (chr, quantity, as_first, as_last, position)
+            VALUES ('{symb}', 0, 0, 0, 1)
+            ON CONFLICT DO NOTHING;
             '''
         )
     db.commit()
@@ -95,18 +101,20 @@ def yo_mode(db):
     with io.open('yo.txt', mode='r', encoding='utf-8') as f:
         for line in f:
             yo_word = line.strip()
+            yo_word = yo_word.replace("'", "''")
             cursor.execute(
                 f'''
                 INSERT INTO words (word, quantity, as_first, as_last, position)
-                VALUES ("{yo_word}", 0, 0, 0, 1)
+                VALUES ('{yo_word}', 0, 0, 0, 1)
                 ON CONFLICT DO NOTHING;
                 '''
             )
             ye_word = yo_word.replace('ё', 'е')
+            ye_word = ye_word.replace("'", "''")
             cursor.execute(
                 f'''
                 INSERT INTO words (word, quantity, as_first, as_last, position)
-                VALUES ("{ye_word}", 0, 0, 0, 1)
+                VALUES ('{ye_word}', 0, 0, 0, 1)
                 ON CONFLICT DO NOTHING;
                 '''
             )
@@ -114,7 +122,7 @@ def yo_mode(db):
             cursor.execute(
                 f'''
                 INSERT INTO yo_words (yo_word, ye_word, mandatory)
-                VALUES ("{yo_word}", "{ye_word}", 1)
+                VALUES ('{yo_word}', '{ye_word}', 1)
                 ON CONFLICT DO NOTHING;
                 '''
             )
@@ -122,18 +130,20 @@ def yo_mode(db):
     with io.open('ye-yo.txt', mode='r', encoding='utf-8') as f:
         for line in f:
             yo_word = line.strip()
+            yo_word = yo_word.replace("'", "''")
             cursor.execute(
                 f'''
                 INSERT INTO words (word, quantity, as_first, as_last, position)
-                VALUES ("{yo_word}", 0, 0, 0, 1)
+                VALUES ('{yo_word}', 0, 0, 0, 1)
                 ON CONFLICT DO NOTHING;
                 '''
             )
             ye_word = line.strip().replace('ё', 'е')
+            ye_word = ye_word.replace("'", "''")
             cursor.execute(
                 f'''
                 INSERT INTO words (word, quantity, as_first, as_last, position)
-                VALUES ("{yo_word}", 0, 0, 0, 1)
+                VALUES ('{yo_word}', 0, 0, 0, 1)
                 ON CONFLICT DO NOTHING;
                 '''
             )
@@ -141,7 +151,7 @@ def yo_mode(db):
             cursor.execute(
                 f'''
                 INSERT INTO yo_words (yo_word, ye_word, mandatory)
-                VALUES ("{yo_word}", "{ye_word}", 0)
+                VALUES ('{yo_word}', '{ye_word}', 0)
                 ON CONFLICT DO NOTHING;
                 '''
             )
