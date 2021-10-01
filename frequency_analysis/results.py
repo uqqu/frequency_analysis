@@ -33,17 +33,25 @@ class ExcelWriter:
             for x in ('symbols', 'symbol_bigrams', 'words', 'word_bigrams')
         ]
 
-    def __add_main_style(self, sheet, f_width=5, a_width=12, two_column=False):
+    def __add_main_style(
+        self, sheet, f_width=5, a_width=12, two_columns=False, two_rows=0, color=None
+    ):
         '''Add main row/column formating (width, bold, centred, freeze).'''
+        if color:
+            sheet.set_tab_color(color)
         sheet.ignore_errors({'number_stored_as_text': 'A:ZZ'})
-        sheet.freeze_panes(1, 1 + two_column)
+        sheet.freeze_panes(1 + bool(two_rows), 1 + two_columns)
         sheet.set_row(0, None, self.f_bold)
-        sheet.set_column('A:A', f_width, self.f_bold)
-        if two_column:
-            sheet.set_column('C:AZ', a_width)
-            sheet.set_column('B:B', f_width, self.f_bold)
+        sheet.set_column(0, 0 + two_columns, f_width, self.f_bold)
+        if two_rows:
+            sheet.set_column(two_rows + 1, two_rows + 1 + two_columns, f_width, self.f_bold)
+            sheet.set_column(1 + two_columns, two_rows, a_width)
+            sheet.set_column(two_rows + 2 + two_columns, 99, a_width)
+            sheet.set_row(1, None, self.f_bold)
+            sheet.merge_range(0, 0, 0, two_rows - 1, 'Case sensitive', self.f_bold)
+            sheet.merge_range(0, two_rows + 1, 0, two_rows * 2, 'Case insensitive', self.f_bold)
         else:
-            sheet.set_column('B:AZ', a_width)
+            sheet.set_column(1 + two_columns, 99, a_width)
 
     def treat(self, limits=(0, 0, 0, 0), min_quantity=(1, 1, 1, 1, 1)):
         '''Create main sheets all at once.
@@ -89,16 +97,17 @@ class ExcelWriter:
         ]
         avg_pos_list = [
             self.cursor.execute(
-                f'SELECT SUM(quantity*position)/SUM(quantity) FROM {x} \
-                        {"WHERE ord != 32" if x == "symbols" else ""};'
+                f'''
+                SELECT SUM(quantity*position)/SUM(quantity)
+                FROM {x}
+                {"WHERE chr != ' '" if x == "symbols" else ""};
+                '''
             ).fetchone()[0]
             for x in ('symbols', 'symbol_bigrams', 'words', 'word_bigrams')
         ]
         stats = self.workbook.add_worksheet('Stats')
         self.__add_main_style(stats, 15, 15)
-        stats.write(0, 1, 'Total')
-        stats.write(0, 2, 'Quantity')
-        stats.write(0, 3, 'Avg. position')
+        stats.write_row(0, 1, ('Total', 'Quantity', 'Avg. position'))
         stats.write_column(1, 0, ('Symbols', 'Symbol bigrams', 'Words', 'Word bigrams'))
         stats.write_column(1, 1, count_list, self.f_int)
         stats.write_column(1, 2, self.sum_list, self.f_int)
@@ -107,90 +116,167 @@ class ExcelWriter:
     def sheet_symbols(self, limit=0, min_quantity=1):
         '''Create top-list of all analyzed symbols by quantity. Is called from main "treat()".'''
         symbols = self.workbook.add_worksheet('Symbols')
-        symbols.set_tab_color('green')
-        self.__add_main_style(symbols)
-        symbols.write_row(0, 0, ('Symb', 'Quantity', '% from all', 'As first', 'As last'))
-        if self.pos_list[0] != 1:
-            symbols.write(0, 5, 'Avg. position')
+        self.__add_main_style(symbols, color='green', two_rows=6)
 
-        self.cursor.execute(
-            f'''
-            SELECT *
-            FROM symbols
-            WHERE quantity >= {min_quantity}
-            ORDER BY quantity DESC, ord ASC
-            {f'LIMIT {limit}' if limit else ''};
-            '''
-        )
-        for row, symb in enumerate(self.cursor.fetchall(), 1):
-            symbols.write_string(row, 0, chr(symb[0]))
-            symbols.write_number(row, 1, symb[1], self.f_int)
-            symbols.write_number(row, 2, symb[1] / self.sum_list[0], self.f_percent)
-            if symb[0] != 32:
-                symbols.write_number(row, 3, symb[2], self.f_int)
-                symbols.write_number(row, 4, symb[3], self.f_int)
+        self.cursor.execute('SELECT * FROM symbols')
+        values: list = [{}, {}]  # [case sensitive, case insensitive]
+        for symb in self.cursor.fetchall():
+            values[0][symb[0]] = list(symb[1:])
+            if (s := symb[0].lower()) in values[1]:
                 if self.pos_list[0] != 1:
-                    symbols.write_number(row, 5, symb[4], self.f_float)
+                    values[1][s][3] = (values[1][s][3] * values[1][s][0] + symb[4] * symb[1]) / (
+                        values[1][s][0] + symb[1]
+                    )
+                values[1][s][0] += symb[1]
+                values[1][s][1] += symb[2]
+                values[1][s][2] += symb[3]
+            else:
+                values[1][s] = list(symb[1:])
 
-        chart = self.workbook.add_chart({'type': 'pie'})
-        chart.add_series(
-            {
-                'name': 'Letter frequency',
-                'categories': f'=Symbols!$A3:$A{limit+3 if limit else ""}',
-                'values': f'=Symbols!$C3:$C{limit+3 if limit else ""}',
-            }
-        )
-        symbols.insert_chart('H2', chart)
+        for e in [0, 7]:
+            symbols.write_row(1, e, ('Symb', 'Quantity', '% from all', 'As first', 'As last'))
+            if self.pos_list[0] != 1:
+                symbols.write(1, 5 + e, 'Avg. position')
+            values[bool(e)] = dict(
+                sorted(values[bool(e)].items(), key=lambda x: x[1][0], reverse=True)
+            )
+            for row, (symb, vals) in enumerate(values[bool(e)].items(), 2):
+                if (limit and row > limit + 1) or vals[0] < min_quantity:
+                    break
+                symbols.write_string(row, 0 + e, symb)
+                symbols.write_number(row, 1 + e, vals[0], self.f_int)
+                symbols.write_number(row, 2 + e, vals[0] / self.sum_list[0], self.f_percent)
+                if symb != ' ':
+                    symbols.write_number(row, 3 + e, vals[1], self.f_int)
+                    symbols.write_number(row, 4 + e, vals[2], self.f_int)
+                    if self.pos_list[0] != 1:
+                        symbols.write_number(row, 5 + e, vals[3], self.f_float)
+            chart = self.workbook.add_chart({'type': 'pie'})
+            cols = ('H', 'J') if bool(e) else ('A', 'C')
+            chart.add_series(
+                {
+                    'name': f'Letter frequency (case {"in" if bool(e) else ""}sensitive)',
+                    'categories': f'=Symbols!${cols[0]}3:${cols[0]}{limit+3 if limit else ""}',
+                    'values': f'=Symbols!${cols[1]}3:${cols[1]}{limit+3 if limit else ""}',
+                }
+            )
+            symbols.insert_chart(f'O{18 if bool(e) else 3}', chart)
 
     def sheet_symbol_bigrams_top(self, limit=0, min_quantity=1):
         '''Create top-list of symbol bigrams by quantity. Is called from main "treat()".'''
         symbol_bigrams_top = self.workbook.add_worksheet('Symbol bigrams top')
-        symbol_bigrams_top.set_tab_color('green')
-        self.__add_main_style(symbol_bigrams_top, two_column=True)
-        symbol_bigrams_top.write_row(0, 0, ('1st', '2nd', 'Quantity', '% from all'))
-        if self.pos_list[1]:
-            symbol_bigrams_top.write(0, 4, 'Avg. position')
+        self.__add_main_style(symbol_bigrams_top, two_columns=True, two_rows=7, color='green')
 
-        self.cursor.execute(
-            f'''
-            SELECT *
-            FROM symbol_bigrams
-            WHERE quantity >= {min_quantity}
-            ORDER BY quantity DESC, first_symb_ord ASC, second_symb_ord ASC
-            {f'LIMIT {limit}' if limit else ''};
-            '''
-        )
-        for row, bigr in enumerate(self.cursor.fetchall(), 1):
-            symbol_bigrams_top.write_string(row, 0, chr(bigr[0]))
-            symbol_bigrams_top.write_string(row, 1, chr(bigr[1]))
-            symbol_bigrams_top.write_number(row, 2, bigr[2], self.f_int)
-            symbol_bigrams_top.write_number(row, 3, bigr[2] / self.sum_list[1], self.f_percent)
+        self.cursor.execute('SELECT * FROM symbol_bigrams')
+
+        values: list = [{}, {}]
+        for symb in self.cursor.fetchall():
+            values[0][symb[0] + symb[1]] = list(symb[2:])
+            if (s := symb[0].lower() + symb[1].lower()) in values[1]:
+                if self.pos_list[1]:
+                    values[1][s][3] = (values[1][s][3] * values[1][s][0] + symb[5] * symb[2]) / (
+                        values[1][s][0] + symb[2]
+                    )
+                values[1][s][0] += symb[2]
+                values[1][s][1] += symb[3]
+                values[1][s][2] += symb[4]
+            else:
+                values[1][s] = list(symb[2:])
+        for e in [0, 8]:
+            symbol_bigrams_top.write_row(
+                1, e, ('1st', '2nd', 'Quantity', '% from all', 'As first', 'As last')
+            )
             if self.pos_list[1]:
-                symbol_bigrams_top.write_number(row, 4, bigr[3], self.f_float)
+                symbol_bigrams_top.write(1, 6 + e, 'Avg. position')
+            values[bool(e)] = dict(
+                sorted(values[bool(e)].items(), key=lambda x: x[1][0], reverse=True)
+            )
+            for row, (pair, vals) in enumerate(values[bool(e)].items(), 2):
+                if (limit and row > limit + 1) or vals[0] < min_quantity:
+                    break
+                symbol_bigrams_top.write_string(row, 0 + e, pair[0])
+                symbol_bigrams_top.write_string(row, 1 + e, pair[1])
+                symbol_bigrams_top.write_number(row, 2 + e, vals[0], self.f_int)
+                symbol_bigrams_top.write_number(
+                    row, 3 + e, vals[0] / self.sum_list[1], self.f_percent
+                )
+                symbol_bigrams_top.write_number(row, 4 + e, vals[1], self.f_int)
+                symbol_bigrams_top.write_number(row, 5 + e, vals[2], self.f_int)
+                if self.pos_list[1]:
+                    symbol_bigrams_top.write_number(row, 6 + e, vals[3], self.f_float)
+            chart = self.workbook.add_chart({'type': 'pie'})
+            cols = ('I', 'J', 'L') if bool(e) else ('A', 'B', 'D')
+            chart.add_series(
+                {
+                    'name': f'Symbol bigrams frequency (case {"in" if bool(e) else ""}sensitive)',
+                    'categories': (
+                        f'=\'Symbol bigrams top\'!${cols[0]}3:${cols[1]}{limit+3 if limit else ""}'
+                    ),
+                    'values': (
+                        f'=\'Symbol bigrams top\'!${cols[2]}3:${cols[2]}{limit+3 if limit else ""}'
+                    ),
+                }
+            )
+            symbol_bigrams_top.insert_chart(f'Q{18 if bool(e) else 3}', chart)
 
-    def sheet_all_symb_bigrams(self, min_quantity=1):
+    def sheet_all_symb_bigrams(self, min_quantity=1, ignore_case=False):
         '''Create 2D bigrams table for all analyzed symbols. Is called from main "treat()".'''
-        all_symb_bigrams = self.workbook.add_worksheet('All symb bigrams')
+        all_symb_bigrams = self.workbook.add_worksheet(
+            f'All symb bigrams{" [I]" if ignore_case else ""}'
+        )
         all_symb_bigrams.set_tab_color('red')
         self.__add_main_style(all_symb_bigrams, 2.14, 9.43)
-        self.cursor.execute(
-            f'''
-            SELECT *
-            FROM symbol_bigrams
-            WHERE quantity >= {min_quantity}
-            ORDER BY first_symb_ord ASC, second_symb_ord ASC;
-            '''
-        )
+        self.cursor.execute('SELECT DISTINCT first_symb FROM symbol_bigrams;')
+        fst_symbs = [x[0] for x in self.cursor.fetchall()]
+        self.cursor.execute('SELECT DISTINCT second_symb FROM symbol_bigrams;')
+        snd_symbs = [x[0] for x in self.cursor.fetchall()]
+        all_symbs = set(fst_symbs + snd_symbs)
         order: dict = {}
-        for pair in self.cursor.fetchall():
-            for elem_num in [0, 1]:
-                if pair[elem_num] not in order:
-                    order[pair[elem_num]] = len(order) + 1
-                    all_symb_bigrams.write_string(0, order[pair[elem_num]], chr(pair[elem_num]))
-                    all_symb_bigrams.write_string(order[pair[elem_num]], 0, chr(pair[elem_num]))
-            all_symb_bigrams.write_number(order[pair[0]], order[pair[1]], pair[2], self.f_int)
+        values: dict = {}
+        for symb in all_symbs.copy():
+            self.cursor.execute(
+                f'''
+                SELECT SUM(quantity)
+                FROM symbol_bigrams
+                WHERE first_symb='{symb}' OR second_symb='{symb}'
+                {' COLLATE NOCASE' if ignore_case else ''};
+                '''
+            )
+            if (s := self.cursor.fetchone()[0]) and s >= min_quantity:
+                self.cursor.execute(
+                    f'''
+                    SELECT *
+                    FROM symbol_bigrams
+                    WHERE first_symb='{symb}' OR second_symb='{symb}'
+                    {' COLLATE NOCASE' if ignore_case else ''};
+                    '''
+                )
+                for pair in self.cursor.fetchall():
+                    for e in [0, 1]:
+                        if (s := pair[e].lower() if ignore_case else pair[e]) not in order:
+                            order[s] = len(order) + 1
+                    b = (pair[0] + pair[1]).lower() if ignore_case else (pair[0] + pair[1])
+                    if b in values:
+                        if self.pos_list[1]:
+                            values[b][3] = (values[b][0] * values[b][3] + pair[2] * pair[5]) / (
+                                values[b][0] + pair[2]
+                            )
+                        values[b][0] += pair[2]
+                        values[b][1] += pair[3]
+                        values[b][2] += pair[4]
+                    else:
+                        values[b] = list(pair[2:])
+        for bigr, val in values.items():
+            all_symb_bigrams.write_number(order[bigr[0]], order[bigr[1]], val[0], self.f_int)
+            all_symb_bigrams.write_comment(
+                order[bigr[0]],
+                order[bigr[1]],
+                f'As first: {val[1]}; as last: {val[2]}' + f'; position: {val[3]}'
+                if self.pos_list[1]
+                else '',
+            )
         f_cond_rules = {'type': 'top', 'value': 10, 'criteria': '%', 'format': self.f_red_bg}
-        all_symb_bigrams.conditional_format(1, 1, len(order), len(order), f_cond_rules)
+        all_symb_bigrams.conditional_format(1, 1, len(order) + 1, len(order) + 1, f_cond_rules)
 
     def sheet_top_words(self, limit=0, min_quantity=1):
         '''Create top-list of words by quantity. Is called from main "treat()".'''
@@ -245,18 +331,33 @@ class ExcelWriter:
             if self.pos_list[3]:
                 word_bigrams_top.write_number(row, 4, bigr[3], self.f_float)
 
-    def sheet_custom_symb(self, symbols):
+    def sheet_custom_symb(self, symbols, name='Custom symbols'):
         '''Create symbol top-list with user inputed symbols.
 
         !This function is not called from main "treat()"
         '''
+        i_symbols = {y for x in symbols for y in (ord(x.lower()), ord(x.upper()))}
         symbols = {ord(x) for x in symbols}
-        custom_top_symb = self.workbook.add_worksheet('Custom symbols')
-        custom_top_symb.set_tab_color('blue')
+        while True:
+            try:
+                custom_top_symb = self.workbook.add_worksheet(name)
+                break
+            except xlsxwriter.exceptions.DuplicateWorksheetName:
+                name += ' – Copy'
+        custom_top_symb.set_tab_color('gray')
         self.__add_main_style(custom_top_symb)
-        custom_top_symb.write_row(0, 0, ('Symb', 'Quantity', '%', 'As first', 'As last'))
+        custom_top_symb.freeze_panes(2, 2)
+        custom_top_symb.set_row(1, None, self.f_bold)
+        custom_top_symb.set_column('G:H', 5, self.f_bold)
+        custom_top_symb.set_column('B:F', 12)
+        custom_top_symb.set_column('I:AZ', 12)
+        custom_top_symb.merge_range('A1:F1', 'Case sensitive', self.f_bold)
+        custom_top_symb.merge_range('H1:M1', 'Case insensitive', self.f_bold)
+        custom_top_symb.write_row(1, 0, ('Symb', 'Quantity', '%', 'As first', 'As last'))
+        custom_top_symb.write_row(1, 7, ('Symb', 'Quantity', '%', 'As first', 'As last'))
         if self.pos_list[0] != 1:
-            custom_top_symb.write(0, 5, 'Avg. position')
+            custom_top_symb.write(1, 5, 'Avg. position')
+            custom_top_symb.write(1, 12, 'Avg. position')
 
         self.cursor.execute(
             f'''
@@ -267,14 +368,41 @@ class ExcelWriter:
             '''
         )
 
-        for row, symb in enumerate(self.cursor.fetchall(), 1):
-            custom_top_symb.write_string(row, 0, chr(symb[0]))
-            custom_top_symb.write_number(row, 1, symb[1], self.f_int)
+        res = self.cursor.fetchall()
+        values: dict = {}
+        if ignore_case:
+            for symb in res:
+                if (s := chr(symb[0]).lower()) in values:
+                    if self.pos_list[0] != 1:
+                        values[s][3] = (values[s][3] * values[s][0] + symb[1] * symb[4]) / (
+                            values[s][0] + symb[1]
+                        )
+                    values[s][0] += symb[1]
+                    values[s][1] += symb[2]
+                    values[s][2] += symb[3]
+                else:
+                    values[s] = list(symb[1:])
+        else:
+            for symb in self.cursor.fetchall():
+                values[chr(symb[0])] = symb[1:]
+
+        for row, (symb, value) in enumerate(values.items(), 1):
+            custom_top_symb.write_string(row, 0, str(symb))
+            custom_top_symb.write_number(row, 1, value[0], self.f_int)
             custom_top_symb.write_formula(row, 2, f'=B{row+1}/SUM(B:B)', self.f_percent)
-            custom_top_symb.write_number(row, 3, symb[2], self.f_int)
-            custom_top_symb.write_number(row, 4, symb[3], self.f_int)
+            custom_top_symb.write_number(row, 3, value[1], self.f_int)
+            custom_top_symb.write_number(row, 4, value[2], self.f_int)
             if self.pos_list[0] != 1:
-                custom_top_symb.write_number(row, 5, symb[4], self.f_float)
+                custom_top_symb.write_number(row, 5, value[3], self.f_float)
+
+        for row, (symb, value) in enumerate(values.items(), 1):
+            custom_top_symb.write_string(row, 0, str(symb))
+            custom_top_symb.write_number(row, 1, value[0], self.f_int)
+            custom_top_symb.write_formula(row, 2, f'=B{row+1}/SUM(B:B)', self.f_percent)
+            custom_top_symb.write_number(row, 3, value[1], self.f_int)
+            custom_top_symb.write_number(row, 4, value[2], self.f_int)
+            if self.pos_list[0] != 1:
+                custom_top_symb.write_number(row, 5, value[3], self.f_float)
 
         chart = self.workbook.add_chart({'type': 'pie'})
         chart.add_series(
