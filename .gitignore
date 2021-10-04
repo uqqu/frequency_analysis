@@ -1,5 +1,8 @@
 ﻿frequency_analysis.egg-info/
-examples/multiUN_analysis/multiUN/
-examples/multiUN_analysis/frequency_analysis/result.db
 build/
 dist/
+*.xml
+examples/annot_opcorpora_analysis/*.txt
+examples/multiUN_analysis/multiUN/
+# 400M multiUN result.db file
+examples/multiUN_analysis/frequency_analysis/result.db
