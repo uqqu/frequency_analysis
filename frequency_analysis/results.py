@@ -137,11 +137,10 @@ class ExcelWriter:
             clear_symb = symb.replace("'", "''")
             if ignore_case:
                 where = f'''
-                    WHERE first_symb='{clear_symb.lower()}' OR first_symb='{clear_symb.upper()}'
-                    OR second_symb='{clear_symb.lower()}' OR second_symb='{clear_symb.upper()}';
+                    WHERE first_symb='{clear_symb.lower()}' OR first_symb='{clear_symb.upper()}';
                     '''
             else:
-                where = f"WHERE first_symb='{clear_symb}' OR second_symb='{clear_symb}';"
+                where = f"WHERE first_symb='{clear_symb}';"
             self.cursor.execute(f'SELECT SUM(quantity) FROM symbol_bigrams {where}')
             if (s := self.cursor.fetchone()[0]) and s >= min_quantity:
                 order.append(symb)
