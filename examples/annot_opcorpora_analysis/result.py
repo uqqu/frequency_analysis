@@ -16,7 +16,7 @@ with frequency_analysis.Result() as res:
     res.sheet_custom_symb(''.join([chr(x) for x in range(1040, 1104)] + [chr(1105), chr(1025)]))
     res.sheet_ru_symb_bigrams()  # additional keyword argument – ignore_case (boolean)
     # just test. There is more easier way with sheet_ru_symb_bigrams(ignore_case=True)
-    res.sheet_custom_symb_bigrams(ru_symbs, ignore_case=True, name='Russian letters bigrams')
+    res.sheet_custom_symb_bigrams(ru_symbs, ignore_case=True, name='Russian letter bigrams')
     res.sheet_yo_words()  # additional arguments – limits (int), min_quantity (int)
 print('fin at:', datetime.now().strftime('%H:%M:%S'))
 print('total time taked to xlsx generating:', datetime.now() - start)

@@ -1,0 +1,5 @@
+﻿frequency_analysis.egg-info/
+examples/multiUN_analysis/multiUN/
+examples/multiUN_analysis/frequency_analysis/result.db
+build/
+dist/
