@@ -12,7 +12,7 @@ class ExcelWriter:
     '''Convert generated .db data to excel view.
 
     All mandatory functions are called all at once by treat().
-    Additional functions – sheet_en_symb_bigrams(), sheet_ru_symb_bigrams() and sheet_yo_words()
+    Additional functions – sheet_en_symbol_bigrams(), sheet_ru_symbol_bigrams() and sheet_yo_words()
         are called individually.
     '''
 
@@ -121,7 +121,7 @@ class ExcelWriter:
             chart.set_style(6)
             sheet.insert_chart(f'{"Q" if dbl else "O"}{21 if bool(e) else 3}', chart)
 
-    def __2d_symb_bigrams(self, sheet, min_quantity: int, ignore_case: bool, custom_symbols=''):
+    def __2d_symbol_bigrams(self, sheet, min_quantity: int, ignore_case: bool, custom_symbols=''):
         '''Fill data for 2D (bigrams n:n) sheets.'''
         self.cursor.execute('SELECT DISTINCT first_symb FROM symbol_bigrams;')
         fst_symbs = [x[0] for x in self.cursor.fetchall()]
@@ -182,47 +182,52 @@ class ExcelWriter:
         f_cond_rules = {'type': 'top', 'value': 10, 'criteria': '%', 'format': self.f_red_bg}
         sheet.conditional_format(1, 1, len(order) + 1, len(order) + 1, f_cond_rules)
 
-    def treat(self, limits=(0,) * 4, min_quantity=(1,) * 5, chart_limit=(20,) * 4):
+    def treat(self, limits=(0,) * 4, min_quantities=(1,) * 5, chart_limits=(20,) * 4):
         '''Create main sheets all at once.
 
         Input:
             limits  — tuple – max number of elements to be added to the sheet (0 – unlimited))
-                    — (symbols, symbol bigrams top, words top, word bigrams top)
+                    — (top symbols, top symbol bigrams, top words, top word bigrams)
                     — default values – [0, 0, 0, 0] (ommited = default);
-            min_quantity – tuple – min number of entries for each element to take it into account)
+            min_quantities – tuple – min number of entries for each element to adding)
                     — (/same as on 'limits'/, +symbol bigrams table)
-                    — default values – (1, 1, 1, 1, 1) (ommited = default)
-                    — (symbs, symb bigrs top, words top, word bigrs top, !symbol bigrams table!).
-            chart_limit – tuple – number of first items for pie charts
+                    — default values – (1, 1, 1, 1, 1) (ommited = default);
+            chart_limits – tuple – number of the first items for pie chart counting
                     — (/same as on 'limits'/)
-                    — (symbols, symbol bigrams top, words top, word bigrams top)
+                    — (top symbols, top symbol bigrams, top words, top word bigrams).
         '''
-        for t, (l, v) in {limits: (4, 0), min_quantity: (5, 1), chart_limit: (4, 20)}.items():
+        for t, (l, v) in {limits: (4, 0), min_quantities: (5, 1), chart_limits: (4, 20)}.items():
             if len(t) < l:
                 literal_eval(f'{t} = tuple({t}) + ({v},) * ({l} - len({t}))')
         print('Start of writing to .xlsx')
         self.sheet_stats()
         print('... stats sheet was written')
-        self.sheet_symbols(limits[0], min_quantity[0], chart_limit[0])
+        self.sheet_top_symbols(limits[0], min_quantities[0], chart_limits[0])
         print('... symbols sheet was written')
-        self.sheet_symbol_bigrams_top(limits[1], min_quantity[1], chart_limit[1])
+        self.sheet_top_symbol_bigrams(limits[1], min_quantities[1], chart_limits[1])
         print('... top symbol bigrams sheet was written')
-        self.sheet_all_symb_bigrams(min_quantity[4])
+        self.sheet_all_symbol_bigrams(min_quantities[4])
         print('... symbol bigrams table sheet was written')
-        self.sheet_top_words(limits[2], min_quantity[2], chart_limit[2])
+        self.sheet_top_words(limits[2], min_quantities[2], chart_limits[2])
         print('... top words sheet was written')
-        self.sheet_word_bigrams_top(limits[3], min_quantity[3], chart_limit[3])
+        self.sheet_top_word_bigrams(limits[3], min_quantities[3], chart_limits[3])
         print('... top word bigrams sheet was written')
         print('End of writing main sheets.')
         print(
             'You can call additional functions to create more sheets '
-            '(e.g. "sheet_en_symb_bigrams()", "sheet_ru_symb_bigrams()", '
-            '"sheet_yo_words([limit], [min_quantity])") or "sheet_custom_symb(symbols_string)".\n'
-            'You also can call 2D sheet functions with "ignore_case=True" argument.'
+            '(e.g. "sheet_en_symbol_bigrams()", "sheet_ru_symbol_bigrams()", '
+            '"sheet_yo_words([limit, min_quantity])"), '
+            '"sheet_custom_top_symbols(symbols_str)" or "sheet_custom_symbol_bigrams(symbols_str)"'
+            '.\nYou can also call 2D sheet functions with "ignore_case=True" argument.'
         )
 
     def sheet_stats(self):
         '''Create main statistic of analysis. Is called from main "treat()".'''
+        try:
+            stats = self.workbook.add_worksheet('Stats')
+        except xlsxwriter.exceptions.DuplicateWorksheetName:
+            print('Sheet "Stats" already exists')
+            return
         count_list = [
             self.cursor.execute(f'SELECT COUNT(*) FROM {x};').fetchone()[0]
             for x in ('symbols', 'symbol_bigrams', 'words', 'word_bigrams')
@@ -237,7 +242,6 @@ class ExcelWriter:
             ).fetchone()[0]
             for x in ('symbols', 'symbol_bigrams', 'words', 'word_bigrams')
         ]
-        stats = self.workbook.add_worksheet('Stats')
         self.__add_main_style(stats, 15, 15)
         stats.write_row(0, 1, ('Total', 'Quantity', 'Avg. position'))
         stats.write_column(1, 0, ('Symbols', 'Symbol bigrams', 'Words', 'Word bigrams'))
@@ -245,14 +249,18 @@ class ExcelWriter:
         stats.write_column(1, 2, self.sum_list, self.f_int)
         stats.write_column(1, 3, avg_pos_list, self.f_float)
 
-    def sheet_symbols(self, limit=0, min_quantity=1, chart_limit=20):
+    def sheet_top_symbols(self, limit=0, min_quantity=1, chart_limit=20):
         '''Create top-list of all analyzed symbols by quantity. Is called from main "treat()".'''
-        symbols = self.workbook.add_worksheet('Symbols')
-        self.__add_main_style(symbols, two_rows=6, color='green')
+        try:
+            top_symbols = self.workbook.add_worksheet('Top symbols')
+        except xlsxwriter.exceptions.DuplicateWorksheetName:
+            print('Sheet "Top symb bigrams" already exists')
+            return
+        self.__add_main_style(top_symbols, two_rows=6, color='green')
         self.cursor.execute('SELECT * FROM symbols')
         self.__fill_top_data(
-            symbols,
-            'Symbols',
+            top_symbols,
+            'Top symbols',
             self.pos_list[0] != 1,
             ('Symb',),
             False,
@@ -262,14 +270,18 @@ class ExcelWriter:
             self.sum_list[0],
         )
 
-    def sheet_symbol_bigrams_top(self, limit=0, min_quantity=1, chart_limit=20):
+    def sheet_top_symbol_bigrams(self, limit=0, min_quantity=1, chart_limit=20):
         '''Create top-list of symbol bigrams by quantity. Is called from main "treat()".'''
-        symbol_bigrams_top = self.workbook.add_worksheet('Symbol bigrams')
-        self.__add_main_style(symbol_bigrams_top, two_columns=True, two_rows=7, color='green')
+        try:
+            top_symbol_bigrams = self.workbook.add_worksheet('Top symb bigrams')
+        except xlsxwriter.exceptions.DuplicateWorksheetName:
+            print('Sheet "Top symb bigrams" already exists')
+            return
+        self.__add_main_style(top_symbol_bigrams, two_columns=True, two_rows=7, color='green')
         self.cursor.execute('SELECT * FROM symbol_bigrams')
         self.__fill_top_data(
-            symbol_bigrams_top,
-            'Symbol bigrams',
+            top_symbol_bigrams,
+            'Top symb bigrams',
             bool(self.pos_list[1]),
             ('1st', '2nd'),
             True,
@@ -279,17 +291,25 @@ class ExcelWriter:
             self.sum_list[1],
         )
 
-    def sheet_all_symb_bigrams(self, min_quantity=1, *, ignore_case=False):
+    def sheet_all_symbol_bigrams(self, min_quantity=1, *, ignore_case=False):
         '''Create 2D bigrams for all analyzed symbols. Is called from main "treat()".'''
-        all_symb_bigrams = self.workbook.add_worksheet(
-            f'All symb bigrams{" (I)" if ignore_case else ""}'
-        )
-        self.__add_main_style(all_symb_bigrams, 2.14, 9.43)
-        self.__2d_symb_bigrams(all_symb_bigrams, min_quantity, ignore_case)
+        try:
+            all_symbol_bigrams = self.workbook.add_worksheet(
+                f'All symb bigrams{" (I)" if ignore_case else ""}'
+            )
+        except xlsxwriter.exceptions.DuplicateWorksheetName:
+            print(f'Sheet "All symb bigrams{" (I)" if ignore_case else ""}" already exists')
+            return
+        self.__add_main_style(all_symbol_bigrams, 2.14, 9.43, color='red')
+        self.__2d_symbol_bigrams(all_symbol_bigrams, min_quantity, ignore_case)
 
     def sheet_top_words(self, limit=0, min_quantity=1, chart_limit=20):
         '''Create top-list of words by quantity. Is called from main "treat()".'''
-        top_words = self.workbook.add_worksheet('Top words')
+        try:
+            top_words = self.workbook.add_worksheet('Top words')
+        except xlsxwriter.exceptions.DuplicateWorksheetName:
+            print('Sheet "Top words" already exists')
+            return
         self.__add_main_style(top_words, 16, color='yellow')
         top_words.write_row(0, 0, ('Word', 'Quantity', '% from all', 'As first', 'As last'))
         if self.pos_list[2] and self.pos_list[2] != 1:
@@ -326,15 +346,19 @@ class ExcelWriter:
         chart.set_style(6)
         top_words.insert_chart('H2', chart)
 
-    def sheet_word_bigrams_top(self, limit=0, min_quantity=1, chart_limit=20):
+    def sheet_top_word_bigrams(self, limit=0, min_quantity=1, chart_limit=20):
         '''Create top-list of word bigrams by quantity. Is called from main "treat()".'''
-        word_bigrams_top = self.workbook.add_worksheet('Word bigrams top')
-        self.__add_main_style(word_bigrams_top, 16, 12, two_columns=True, color='yellow')
-        word_bigrams_top.write_row(
+        try:
+            top_word_bigrams = self.workbook.add_worksheet('Top word bigrams')
+        except xlsxwriter.exceptions.DuplicateWorksheetName:
+            print('Sheet "Top word bigrams" already exists')
+            return
+        self.__add_main_style(top_word_bigrams, 16, 12, two_columns=True, color='yellow')
+        top_word_bigrams.write_row(
             0, 0, ('First word', 'Second word', 'Quantity', '% from all', 'As first', 'As last')
         )
         if self.pos_list[3]:
-            word_bigrams_top.write(0, 6, 'Avg. position')
+            top_word_bigrams.write(0, 6, 'Avg. position')
 
         self.cursor.execute(
             f'''
@@ -346,89 +370,98 @@ class ExcelWriter:
             '''
         )
         for row, bigr in enumerate(self.cursor.fetchall(), 1):
-            word_bigrams_top.write_string(row, 0, bigr[0])
-            word_bigrams_top.write_string(row, 1, bigr[1])
-            word_bigrams_top.write_number(row, 2, bigr[2], self.f_int)
-            word_bigrams_top.write_number(row, 3, bigr[2] / self.sum_list[3], self.f_percent)
-            word_bigrams_top.write_number(row, 4, bigr[3], self.f_int)
-            word_bigrams_top.write_number(row, 5, bigr[4], self.f_int)
+            top_word_bigrams.write_string(row, 0, bigr[0])
+            top_word_bigrams.write_string(row, 1, bigr[1])
+            top_word_bigrams.write_number(row, 2, bigr[2], self.f_int)
+            top_word_bigrams.write_number(row, 3, bigr[2] / self.sum_list[3], self.f_percent)
+            top_word_bigrams.write_number(row, 4, bigr[3], self.f_int)
+            top_word_bigrams.write_number(row, 5, bigr[4], self.f_int)
             if self.pos_list[3]:
-                word_bigrams_top.write_number(row, 6, bigr[5], self.f_float)
+                top_word_bigrams.write_number(row, 6, bigr[5], self.f_float)
 
         chart = self.workbook.add_chart({'type': 'pie'})
         chart.add_series(
             {
                 'name': f'Top {chart_limit}',
-                'categories': f"='Word bigrams top'!$A2:$B{chart_limit+1}",
-                'values': f"='Word bigrams top'!$C2:$C{chart_limit+1}",
+                'categories': f"='Top word bigrams'!$A2:$B{chart_limit+1}",
+                'values': f"='Top word bigrams'!$C2:$C{chart_limit+1}",
             }
         )
         chart.set_size({'width': 534, 'height': 360})
         chart.set_legend({'layout': {'x': 0.95, 'y': 0.37, 'width': 0.37, 'height': 0.95}})
         chart.set_style(6)
-        word_bigrams_top.insert_chart('I2', chart)
+        top_word_bigrams.insert_chart('I2', chart)
 
-    def sheet_custom_symb(self, symbols: str, chart_limit=20, *, name='Custom symbols'):
+    def sheet_custom_top_symbols(self, symbols: str, chart_limit=20, *, name='Custom top symbols'):
         '''Create symbol top-list with user inputed symbols.
 
         !This function is not called from main "treat()"
         '''
         while True:
             try:
-                custom_top_symb = self.workbook.add_worksheet(name)
+                custom_top_symbols = self.workbook.add_worksheet(name)
                 break
             except xlsxwriter.exceptions.DuplicateWorksheetName:
                 name += ' – Copy'
-        self.__add_main_style(custom_top_symb, two_rows=6, color='gray')
+        self.__add_main_style(custom_top_symbols, two_rows=6, color='gray')
         self.cursor.execute(f'SELECT * FROM symbols WHERE chr IN {str(tuple(symbols))}')
         self.__fill_top_data(
-            custom_top_symb, name, self.pos_list[0], ('Symb',), False, 0, 0, chart_limit, 0
+            custom_top_symbols, name, self.pos_list[0], ('Symb',), False, 0, 0, chart_limit, 0
         )
         print('... custom symbols top sheet was written.')
 
-    def sheet_en_symb_bigrams(self, *, ignore_case=False):
+    def sheet_en_symbol_bigrams(self, *, ignore_case=False):
         '''Create two-dimensional bigrams table only for English alphabet symbols.
 
         !This function is not called from main "treat()"!
         '''
-        en_symb_bigrams = self.workbook.add_worksheet(
-            f'English letter bigrams{" (I)" if ignore_case else ""}'
-        )
-        self.__add_main_style(en_symb_bigrams, 2.14, 9.43)
-        self.__2d_symb_bigrams(en_symb_bigrams, 1, ignore_case, ascii_lowercase)
+        try:
+            en_symbol_bigrams = self.workbook.add_worksheet(
+                f'English letter bigrams{" (I)" if ignore_case else ""}'
+            )
+        except xlsxwriter.exceptions.DuplicateWorksheetName:
+            print(f'Sheet "English letter bigrams{" (I)" if ignore_case else ""}" already exists')
+            return
+        self.__add_main_style(en_symbol_bigrams, 2.14, 9.43, color='red')
+        self.__2d_symbol_bigrams(en_symbol_bigrams, 1, ignore_case, ascii_lowercase)
         print('... English letter bigrams sheet was written.')
 
-    def sheet_ru_symb_bigrams(self, *, ignore_case=False):
+    def sheet_ru_symbol_bigrams(self, *, ignore_case=False):
         '''Create two-dimensional bigrams table only for Russian alphabet symbols.
 
         !This function is not called from main "treat()"!
         '''
-        ru_symb_bigrams = self.workbook.add_worksheet(
-            f'Russian letter bigrams{" (I)" if ignore_case else ""}'
-        )
-        self.__add_main_style(ru_symb_bigrams, 2.14, 9.43)
-        self.__2d_symb_bigrams(
-            ru_symb_bigrams, 1, ignore_case, 'абвгдеёжзийклмнопрстуфхцчшщьыъэюя'
+        try:
+            ru_symbol_bigrams = self.workbook.add_worksheet(
+                f'Russian letter bigrams{" (I)" if ignore_case else ""}'
+            )
+        except xlsxwriter.exceptions.DuplicateWorksheetName:
+            print(f'Sheet "Russian letter bigrams{" (I)" if ignore_case else ""}" already exists')
+            return
+        self.__add_main_style(ru_symbol_bigrams, 2.14, 9.43, color='red')
+        self.__2d_symbol_bigrams(
+            ru_symbol_bigrams, 1, ignore_case, 'абвгдеёжзийклмнопрстуфхцчшщьыъэюя'
         )
         print('... Russian letter bigrams sheet was written.')
 
-    def sheet_custom_symb_bigrams(
+    def sheet_custom_symbol_bigrams(
         self, symbols, *, ignore_case=False, name='Custom symbol bigrams'
     ):
         '''Create two-dimensional bigrams table only for English alphabet symbols.
 
+        Order of symbols on the sheet will be the same as in the input argument.
         !This function is not called from main "treat()"!
         '''
         if ignore_case:
             name += ' (I)'
         while True:
             try:
-                custom_symb_bigrams = self.workbook.add_worksheet(name)
+                custom_symbol_bigrams = self.workbook.add_worksheet(name)
                 break
             except xlsxwriter.exceptions.DuplicateWorksheetName:
                 name += ' – Copy'
-        self.__add_main_style(custom_symb_bigrams, 2.14, 9.43)
-        self.__2d_symb_bigrams(custom_symb_bigrams, 1, ignore_case, symbols)
+        self.__add_main_style(custom_symbol_bigrams, 2.14, 9.43, color='red')
+        self.__2d_symbol_bigrams(custom_symbol_bigrams, 1, ignore_case, symbols)
         print('... custom symbol bigrams sheet was written.')
 
     def sheet_yo_words(self, limit=0, min_quantity=1):
@@ -436,9 +469,12 @@ class ExcelWriter:
 
         !This function is not called from main "treat()"!
         '''
-        yo_words = self.workbook.add_worksheet('Ye-yo words')
-        yo_words.set_tab_color('yellow')
-        self.__add_main_style(yo_words, 15, 15, two_columns=True)
+        try:
+            yo_words = self.workbook.add_worksheet('Ye-yo words')
+        except xlsxwriter.exceptions.DuplicateWorksheetName:
+            print('Sheet "Ye-yo words" already exists')
+            return
+        self.__add_main_style(yo_words, 15, 15, two_columns=True, color='yellow')
         yo_words.write_row(
             0, 0, ('Ё вариант', 'Е вариант', 'Ё обязательна?', 'Количество с Ё', 'Количество с Е')
         )

@@ -9,7 +9,7 @@ from frequency_analysis import db_create
 
 
 def commit(func):
-    '''Decorate for commit changes once per 100 cycles.'''
+    '''Decorator for commit changes once per 100 cycles.'''
 
     def inner(self, *args, **kwargs):
         self.counter += 1
@@ -55,7 +55,7 @@ class FrequencyAnalysis:
         return clear_word_list
 
     @commit
-    def count_all(self, word_list: list, pos=False, symbol_bigram=True, word_bigram=True):
+    def count_all(self, word_list: list, pos=False, symbol_bigrams=True, word_bigrams=True):
         '''Count symbols, words, symbol bigrams, word bigrams, all their average positions.
 
         Input:
@@ -75,20 +75,20 @@ class FrequencyAnalysis:
                     WHERE chr=' ';
                     '''
                 )
-            self.__count_symbols(word, clear_word, pos, symbol_bigram)
+            self.__count_symbols(word, clear_word, pos, symbol_bigrams)
 
         if cutted_clear_word_list := [x.replace("'", "''") for x in clear_word_list if x]:
-            self.__count_words(cutted_clear_word_list, pos, word_bigram)
+            self.__count_words(cutted_clear_word_list, pos, word_bigrams)
 
     @commit
-    def count_words(self, word_list: list, pos=False, bigram=True):
+    def count_words(self, word_list: list, pos=False, bigrams=True):
         '''Decorated wrapper for user calling.'''
         clear_word_list = self.__create_clear_word_list(word_list)
         if cutted_clear_word_list := [x.replace("'", "''") for x in clear_word_list if x]:
-            self.__count_words(cutted_clear_word_list, pos, bigram)
+            self.__count_words(cutted_clear_word_list, pos, bigrams)
 
     @commit
-    def count_symbols(self, word_list: list, pos=False, bigram=True):
+    def count_symbols(self, word_list: list, pos=False, bigrams=True):
         '''Decorated wrapper for user calling.'''
         for word, clear_word in zip(word_list, self.__create_clear_word_list(word_list)):
             if self.total_symbols == 0 and self.space:
@@ -99,10 +99,10 @@ class FrequencyAnalysis:
                     WHERE chr=' ';
                     '''
                 )
-            self.__count_symbols(word, clear_word, pos, bigram)
+            self.__count_symbols(word, clear_word, pos, bigrams)
 
-    def __count_words(self, word_list: list, pos: bool, bigram: bool):
-        '''Word/word bigram counting function.'''
+    def __count_words(self, word_list: list, pos: bool, bigrams: bool):
+        '''Word/word bigrams counting.'''
         last_word = None
         for word_pos, word in enumerate(word_list, 1):
             if self.total_words > 0:
@@ -117,7 +117,7 @@ class FrequencyAnalysis:
                     {f', position=(position*quantity+{word_pos}) / (quantity+1)' if pos else ''};
                 '''
             )
-            if last_word and bigram:
+            if last_word and bigrams:
                 self.cursor.execute(
                     f'''
                     INSERT INTO word_bigrams
@@ -145,7 +145,7 @@ class FrequencyAnalysis:
                 WHERE word='{word_list[-1].lower()}';
                 '''
             )
-            if len(word_list) > 2 and bigram:
+            if len(word_list) > 2 and bigrams:
                 self.cursor.execute(
                     f'''
                     UPDATE word_bigrams
@@ -163,8 +163,8 @@ class FrequencyAnalysis:
                     '''
                 )
 
-    def __count_symbols(self, word: str, clear_word: str, pos: bool, bigram: bool):
-        '''Symbol/symbol bigram counting function.'''
+    def __count_symbols(self, word: str, clear_word: str, pos: bool, bigrams: bool):
+        '''Symbol/symbol bigrams counting.'''
         last_symb = None
         shift = 0
         for symb_pos, symb in enumerate(word, 1):
@@ -189,7 +189,7 @@ class FrequencyAnalysis:
                 '''
             )
 
-            if last_symb and bigram:
+            if last_symb and bigrams:
                 self.cursor.execute(
                     f'''
                     INSERT INTO symbol_bigrams
@@ -219,7 +219,7 @@ class FrequencyAnalysis:
                 WHERE chr='{clear_word[-1]}';
                 '''
             )
-            if len(clear_word) > 2 and bigram:
+            if len(clear_word) > 2 and bigrams:
                 values = [x.replace("'", "''") for x in clear_word]
                 if values[0] in self.allowed_symbols and values[1] in self.allowed_symbols:
                     self.cursor.execute(
@@ -309,10 +309,9 @@ class Analysis:
         if isinstance(self.allowed_symbols[0], int):
             self.allowed_symbols = [chr(x) for x in self.allowed_symbols]
 
-        try:
+        if not os.path.exists(os.path.join(os.getcwd(), self.name)):
             os.mkdir(os.path.join(os.getcwd(), self.name))
-        except FileExistsError:
-            pass
+            
         total_words = 0
         total_symbols = 0
         self.db = sqlite3.connect(os.path.join(os.getcwd(), self.name, 'result.db'))
