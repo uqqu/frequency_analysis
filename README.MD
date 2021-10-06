@@ -10,7 +10,7 @@ Python package for symbol/word [+bigrams] frequency analysis with excel output.
 1. <code>pip install frequency_analysis</code>;
 2. Download data set of your choice;
 3. Call <code>Analysis</code> class with context manager (take a look at the [optional arguments](#analysis-class-arguments));
-4. Parse your data set to word list (one sentence in list for properly word position counting) and send it to one of three [methods of Analysis](#analysis-methods);
+4. Parse your data set to word list (one sentence in list for properly word position counting) and send it to one of three [methods of <code>Analysis</code>](#analysis-methods);
 5. Call <code>Result</code> class with context manager (with optional <code>name</code> argument);
 6. Call one or several of [<code>Result</code> methods](#result-methods) to create excel sheet(s) with appropriate data.
 
@@ -59,7 +59,7 @@ The only argument is optional
 
 ### Result methods
 
-> First 6 methods can be called all it once with <a href="#treat">treat() method</a>
+> First 6 methods can be called all it once with <a href="#treatlimits-tuplefour-int-min_quantities-tuplefive-int-chart_limits-tuplefour-int">treat() method</a>
 
 Many methods accept arguments <code>limit</code>, <code>min_quantity</code>, <code>chart_limit</code> and <code>ignore_case</code>.
 * *limit* (default <code>0</code>) it is a max number of elements, which will be added to the sheet. Zero – unlimited;
