@@ -95,6 +95,7 @@ Create symbols top-list as sheet_top_symbols(), but only with symbols of your ch
 
 #### sheet_custom_symbol_bigrams(symbols: str, [ignore_case, name='Custom symbol bigrams'])
 Create symbol bigrmas 2D sheet as sheet_all_symbol_bigrams(), but only with symbols of your choice.
+<br>Order of symbols on the sheet will be the same as in the input argument.
 
 #### sheet_en_symbol_bigrams([ignore_case])
 Create symbol bigrams 2D sheet as sheet_all_symbol_bigrams(), but only with base Latin symbols.
