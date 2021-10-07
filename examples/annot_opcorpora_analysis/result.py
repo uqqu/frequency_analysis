@@ -7,11 +7,11 @@ ru_symbs = 'абвгдеёжзийклмнопрстуфхцчшщьыъэюя'
 with frequency_analysis.Result() as res:
     # treat() calls all main sheet functions.
     #   limits – max number of items for sheets (symbols, symbol bigrams, words, word bigrams)
-    #   min_quantities – min quantity of each item for sheets
-    #       (symbols, symbol bigrams, words, word bigrams, symbol bigrams 2D)
     #   chart_limits – number of first n items for pie charts counting
     #       (symbols, symbol bigrams, words, word bigrams) sheets
-    res.treat(limits=(1000,) * 4, min_quantities=(10,) * 5, chart_limits=(20,) * 4)
+    #   min_quantities – min quantity of each item for sheets
+    #       (symbols, symbol bigrams, words, word bigrams, symbol bigrams 2D)
+    res.treat(limits=(1000,) * 4, chart_limits=(20,) * 4, min_quantities=(10,) * 5)
     # sheet_custom_symb(symbols: string/list/tuple/set, chart_limit: int, name: str (sheet_name)
     res.sheet_custom_top_symbols(
         ''.join([chr(x) for x in range(1040, 1104)] + [chr(1105), chr(1025)])

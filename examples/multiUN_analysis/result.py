@@ -11,7 +11,7 @@ with frequency_analysis.Result() as res:
     #       (symbols, symbol bigrams, words, word bigrams, symbol bigrams 2D)
     #   chart_limit – number of first n items for charts on
     #       (symbols, symbol bigrams, words, word bigrams) sheets
-    res.treat(limits=(1000,) * 4, min_quantities=(10,) * 5, chart_limits=(20,) * 4)
+    res.treat(limits=(1000,) * 4, chart_limits=(20,) * 4, min_quantities=(10,) * 5)
     # sheet_custom_symb(symbols: string/list/tuple/set, chart_limit: int, name: str (sheet_name)
     res.sheet_custom_top_symbols(ascii_letters)
     res.sheet_en_symbol_bigrams()  # additional keyword argument – ignore_case (boolean)

@@ -63,8 +63,8 @@ class ExcelWriter:
         title_data: tuple,
         dbl: bool,
         limit: int,
-        min_quantity: int,
         chart_limit: int,
+        min_quantity: int,
         sum_value: int,
     ):
         '''Fill data for 1D (top-list) sheets.'''
@@ -182,35 +182,35 @@ class ExcelWriter:
         f_cond_rules = {'type': 'top', 'value': 10, 'criteria': '%', 'format': self.f_red_bg}
         sheet.conditional_format(1, 1, len(order) + 1, len(order) + 1, f_cond_rules)
 
-    def treat(self, limits=(0,) * 4, min_quantities=(1,) * 5, chart_limits=(20,) * 4):
+    def treat(self, limits=(0,) * 4, chart_limits=(20,) * 4, min_quantities=(1,) * 5):
         '''Create main sheets all at once.
 
         Input:
             limits  — tuple – max number of elements to be added to the sheet (0 – unlimited))
                     — (top symbols, top symbol bigrams, top words, top word bigrams)
                     — default values – [0, 0, 0, 0] (ommited = default);
-            min_quantities – tuple – min number of entries for each element to adding)
-                    — (/same as on 'limits'/, +symbol bigrams table)
-                    — default values – (1, 1, 1, 1, 1) (ommited = default);
             chart_limits – tuple – number of the first items for pie chart counting
                     — (/same as on 'limits'/)
-                    — (top symbols, top symbol bigrams, top words, top word bigrams).
+                    — (top symbols, top symbol bigrams, top words, top word bigrams);
+            min_quantities – tuple – min number of entries for each element to adding)
+                    — (/same as on 'limits'/, +symbol bigrams table)
+                    — default values – (1, 1, 1, 1, 1) (ommited = default).
         '''
-        for t, (l, v) in {limits: (4, 0), min_quantities: (5, 1), chart_limits: (4, 20)}.items():
+        for t, (l, v) in {limits: (4, 0), chart_limits: (4, 20), min_quantities: (5, 1)}.items():
             if len(t) < l:
                 literal_eval(f'{t} = tuple({t}) + ({v},) * ({l} - len({t}))')
         print('Start of writing to .xlsx')
         self.sheet_stats()
         print('... stats sheet was written')
-        self.sheet_top_symbols(limits[0], min_quantities[0], chart_limits[0])
+        self.sheet_top_symbols(limits[0], chart_limits[0], min_quantities[0])
         print('... symbols sheet was written')
-        self.sheet_top_symbol_bigrams(limits[1], min_quantities[1], chart_limits[1])
+        self.sheet_top_symbol_bigrams(limits[1], chart_limits[1], min_quantities[1])
         print('... top symbol bigrams sheet was written')
         self.sheet_all_symbol_bigrams(min_quantities[4])
         print('... symbol bigrams table sheet was written')
-        self.sheet_top_words(limits[2], min_quantities[2], chart_limits[2])
+        self.sheet_top_words(limits[2], chart_limits[2], min_quantities[2])
         print('... top words sheet was written')
-        self.sheet_top_word_bigrams(limits[3], min_quantities[3], chart_limits[3])
+        self.sheet_top_word_bigrams(limits[3], chart_limits[3], min_quantities[3])
         print('... top word bigrams sheet was written')
         print('End of writing main sheets.')
         print(
@@ -249,7 +249,7 @@ class ExcelWriter:
         stats.write_column(1, 2, self.sum_list, self.f_int)
         stats.write_column(1, 3, avg_pos_list, self.f_float)
 
-    def sheet_top_symbols(self, limit=0, min_quantity=1, chart_limit=20):
+    def sheet_top_symbols(self, limit=0, chart_limit=20, min_quantity=1):
         '''Create top-list of all analyzed symbols by quantity. Is called from main "treat()".'''
         try:
             top_symbols = self.workbook.add_worksheet('Top symbols')
@@ -265,12 +265,12 @@ class ExcelWriter:
             ('Symb',),
             False,
             limit,
-            min_quantity,
             chart_limit,
+            min_quantity,
             self.sum_list[0],
         )
 
-    def sheet_top_symbol_bigrams(self, limit=0, min_quantity=1, chart_limit=20):
+    def sheet_top_symbol_bigrams(self, limit=0, chart_limit=20, min_quantity=1):
         '''Create top-list of symbol bigrams by quantity. Is called from main "treat()".'''
         try:
             top_symbol_bigrams = self.workbook.add_worksheet('Top symb bigrams')
@@ -286,8 +286,8 @@ class ExcelWriter:
             ('1st', '2nd'),
             True,
             limit,
-            min_quantity,
             chart_limit,
+            min_quantity,
             self.sum_list[1],
         )
 
@@ -303,7 +303,7 @@ class ExcelWriter:
         self.__add_main_style(all_symbol_bigrams, 2.14, 9.43, color='red')
         self.__2d_symbol_bigrams(all_symbol_bigrams, min_quantity, ignore_case)
 
-    def sheet_top_words(self, limit=0, min_quantity=1, chart_limit=20):
+    def sheet_top_words(self, limit=0, chart_limit=20, min_quantity=1):
         '''Create top-list of words by quantity. Is called from main "treat()".'''
         try:
             top_words = self.workbook.add_worksheet('Top words')
@@ -346,7 +346,7 @@ class ExcelWriter:
         chart.set_style(6)
         top_words.insert_chart('H2', chart)
 
-    def sheet_top_word_bigrams(self, limit=0, min_quantity=1, chart_limit=20):
+    def sheet_top_word_bigrams(self, limit=0, chart_limit=20, min_quantity=1):
         '''Create top-list of word bigrams by quantity. Is called from main "treat()".'''
         try:
             top_word_bigrams = self.workbook.add_worksheet('Top word bigrams')
@@ -406,7 +406,7 @@ class ExcelWriter:
         self.__add_main_style(custom_top_symbols, two_rows=6, color='gray')
         self.cursor.execute(f'SELECT * FROM symbols WHERE chr IN {str(tuple(symbols))}')
         self.__fill_top_data(
-            custom_top_symbols, name, self.pos_list[0], ('Symb',), False, 0, 0, chart_limit, 0
+            custom_top_symbols, name, self.pos_list[0], ('Symb',), False, 0, chart_limit, 0, 0
         )
         print('... custom symbols top sheet was written.')
 
