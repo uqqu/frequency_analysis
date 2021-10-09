@@ -88,7 +88,7 @@ Many methods accept arguments ``limit``, ``chart_limit``, ``min_quantity`` and `
 * *limit* (default ``0``) it is a max number of elements, which will be added to the sheet. ``0`` – unlimited;
 * *chart_limit* (default ``20``) – a number of elements, which will be counted with graphical chart;
 * *min_quantity* (default ``1``) – a minimal appropriate value at with element will be added to the sheet;
-* *ignore_case* (default ``False``) – with this argument as ``True`` lower- and upper- case symbols will be united into a single element. With ``False`` – will be counted separately.
+* *ignore_case* (default ``False``) – with this argument as ``True`` lower- and upper- case symbols will be united into a single element. With ``False`` – will be counted separately. ``Keyword-only``
 
 ``sheet_stats()``
 ^^^^^^^^^^^^^^^^^
@@ -139,15 +139,25 @@ Default values as elsewhere:
 * *chart_limits* – ``(20,)*4``
 * *min_quantities* – ``(1,)*5``
 
-``sheet_custom_symbols(symbols: str, [chart_limit, name='Custom symbols'])``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``sheet_custom_top_symbols(symbols: str, [chart_limit, name='Custom symbols'])``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Create symbols top-list as ``sheet_top_symbols()``, but only with symbols of your choice.
+Create symbols top-list as ``sheet_top_symbols()``, but only with symbols of your choice. ``name`` – ``keyword-only``
+
+``sheet_en_top_symbols(symbols: str, [chart_limit])``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Create symbols top-list as ``sheet_top_symbols()``, but only with base Latin symbols.
+
+``sheet_ru_top_symbols(symbols: str, [chart_limit])``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Create symbols top-list as ``sheet_top_symbols()``, but only with Russian Cyrillic symbols.
 
 ``sheet_custom_symbol_bigrams(symbols: str, [ignore_case, name='Custom symbol bigrams'])``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Create symbol bigrmas 2D sheet as ``sheet_all_symbol_bigrams()``, but only with symbols of your choice. Order of symbols on the sheet will be the same as in the input argument.
+Create symbol bigrmas 2D sheet as ``sheet_all_symbol_bigrams()``, but only with symbols of your choice. Order of symbols on the sheet will be the same as in the input argument. ``name`` – ``keyword-only``
 
 ``sheet_en_symbol_bigrams([ignore_case])``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

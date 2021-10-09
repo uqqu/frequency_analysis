@@ -4,7 +4,7 @@ import os
 import re
 import sqlite3
 from ast import literal_eval
-from string import ascii_lowercase
+from string import ascii_letters, ascii_lowercase
 import xlsxwriter
 
 
@@ -201,23 +201,24 @@ class ExcelWriter:
                 literal_eval(f'{t} = tuple({t}) + ({v},) * ({l} - len({t}))')
         print('Start of writing to .xlsx')
         self.sheet_stats()
-        print('... stats sheet was written')
+        print('... "Stats" sheet was written')
         self.sheet_top_symbols(limits[0], chart_limits[0], min_quantities[0])
-        print('... symbols sheet was written')
+        print('... "Top symbols" sheet was written')
         self.sheet_top_symbol_bigrams(limits[1], chart_limits[1], min_quantities[1])
-        print('... top symbol bigrams sheet was written')
+        print('... "Top symbol bigrams" sheet was written')
         self.sheet_all_symbol_bigrams(min_quantities[4])
-        print('... symbol bigrams table sheet was written')
+        print('... "All symbol bigrams" table sheet was written')
         self.sheet_top_words(limits[2], chart_limits[2], min_quantities[2])
-        print('... top words sheet was written')
+        print('... "Top words" sheet was written')
         self.sheet_top_word_bigrams(limits[3], chart_limits[3], min_quantities[3])
-        print('... top word bigrams sheet was written')
+        print('... "Top word bigrams" sheet was written')
         print('End of writing main sheets.')
         print(
             'You can call additional functions to create more sheets '
             '(e.g. "sheet_en_symbol_bigrams()", "sheet_ru_symbol_bigrams()", '
-            '"sheet_yo_words([limit, min_quantity])"), '
-            '"sheet_custom_top_symbols(symbols_str)" or "sheet_custom_symbol_bigrams(symbols_str)"'
+            '"sheet_en_top_symbols([chart_limit])", "sheet_ru_top_symbols([chart_limit]), "'
+            '"sheet_yo_words([limit, min_quantity])"), "sheet_custom_top_symbols(symbols_str)" '
+            'or "sheet_custom_symbol_bigrams(symbols_str)"'
             '.\nYou can also call 2D sheet functions with "ignore_case=True" argument.'
         )
 
@@ -408,41 +409,44 @@ class ExcelWriter:
         self.__fill_top_data(
             custom_top_symbols, name, self.pos_list[0], ('Symb',), False, 0, chart_limit, 0, 0
         )
-        print('... custom symbols top sheet was written.')
+        print(f'... "{name}" sheet was written.')
 
-    def sheet_en_symbol_bigrams(self, *, ignore_case=False):
-        '''Create two-dimensional bigrams table only for English alphabet symbols.
+    def sheet_en_top_symbols(self, chart_limit=20):
+        '''Create symbol top-list with base Latin symbols.
 
-        !This function is not called from main "treat()"!
+        !This function is not called from main "treat()"
         '''
+        name = 'English letters top'
         try:
-            en_symbol_bigrams = self.workbook.add_worksheet(
-                f'English letter bigrams{" (I)" if ignore_case else ""}'
-            )
+            en_top_symbols = self.workbook.add_worksheet(name)
         except xlsxwriter.exceptions.DuplicateWorksheetName:
-            print(f'Sheet "English letter bigrams{" (I)" if ignore_case else ""}" already exists')
+            print(f'Sheet "{name}" already exists')
             return
-        self.__add_main_style(en_symbol_bigrams, 2.14, 9.43, color='red')
-        self.__2d_symbol_bigrams(en_symbol_bigrams, 1, ignore_case, ascii_lowercase)
-        print('... English letter bigrams sheet was written.')
-
-    def sheet_ru_symbol_bigrams(self, *, ignore_case=False):
-        '''Create two-dimensional bigrams table only for Russian alphabet symbols.
-
-        !This function is not called from main "treat()"!
-        '''
-        try:
-            ru_symbol_bigrams = self.workbook.add_worksheet(
-                f'Russian letter bigrams{" (I)" if ignore_case else ""}'
-            )
-        except xlsxwriter.exceptions.DuplicateWorksheetName:
-            print(f'Sheet "Russian letter bigrams{" (I)" if ignore_case else ""}" already exists')
-            return
-        self.__add_main_style(ru_symbol_bigrams, 2.14, 9.43, color='red')
-        self.__2d_symbol_bigrams(
-            ru_symbol_bigrams, 1, ignore_case, 'абвгдеёжзийклмнопрстуфхцчшщьыъэюя'
+        self.__add_main_style(en_top_symbols, two_rows=6, color='gray')
+        self.cursor.execute(f'SELECT * FROM symbols WHERE chr IN {str(tuple(ascii_letters))}')
+        self.__fill_top_data(
+            en_top_symbols, name, self.pos_list[0], ('Symb',), False, 0, chart_limit, 0, 0
         )
-        print('... Russian letter bigrams sheet was written.')
+        print(f'... "{name}" sheet was written.')
+
+    def sheet_ru_top_symbols(self, chart_limit=20):
+        '''Create symbol top-list with Russion Cyrillic symbols.
+
+        !This function is not called from main "treat()"
+        '''
+        name = 'Russian letters top'
+        try:
+            ru_top_symbols = self.workbook.add_worksheet(name)
+        except xlsxwriter.exceptions.DuplicateWorksheetName:
+            print('Sheet "{name}" already exists')
+            return
+        ru_symbs = ''.join([chr(x) for x in range(1040, 1104)] + [chr(1105), chr(1025)])
+        self.__add_main_style(ru_top_symbols, two_rows=6, color='gray')
+        self.cursor.execute(f'SELECT * FROM symbols WHERE chr IN {str(tuple(ru_symbs))}')
+        self.__fill_top_data(
+            ru_top_symbols, name, self.pos_list[0], ('Symb',), False, 0, chart_limit, 0, 0
+        )
+        print(f'... "{name}" sheet was written.')
 
     def sheet_custom_symbol_bigrams(
         self, symbols, *, ignore_case=False, name='Custom symbol bigrams'
@@ -462,7 +466,39 @@ class ExcelWriter:
                 name += ' – Copy'
         self.__add_main_style(custom_symbol_bigrams, 2.14, 9.43, color='red')
         self.__2d_symbol_bigrams(custom_symbol_bigrams, 1, ignore_case, symbols)
-        print('... custom symbol bigrams sheet was written.')
+        print(f'... "{name}" sheet was written.')
+
+    def sheet_en_symbol_bigrams(self, *, ignore_case=False):
+        '''Create two-dimensional bigrams table only for English alphabet symbols.
+
+        !This function is not called from main "treat()"!
+        '''
+        name = f'English letter bigrams{" (I)" if ignore_case else ""}'
+        try:
+            en_symbol_bigrams = self.workbook.add_worksheet(name)
+        except xlsxwriter.exceptions.DuplicateWorksheetName:
+            print(f'Sheet "{name}" already exists')
+            return
+        self.__add_main_style(en_symbol_bigrams, 2.14, 9.43, color='red')
+        self.__2d_symbol_bigrams(en_symbol_bigrams, 1, ignore_case, ascii_lowercase)
+        print(f'... "{name}" sheet was written.')
+
+    def sheet_ru_symbol_bigrams(self, *, ignore_case=False):
+        '''Create two-dimensional bigrams table only for Russian alphabet symbols.
+
+        !This function is not called from main "treat()"!
+        '''
+        name = f'Russian letter bigrams{" (I)" if ignore_case else ""}'
+        try:
+            ru_symbol_bigrams = self.workbook.add_worksheet(name)
+        except xlsxwriter.exceptions.DuplicateWorksheetName:
+            print(f'Sheet "{name}" already exists')
+            return
+        self.__add_main_style(ru_symbol_bigrams, 2.14, 9.43, color='red')
+        self.__2d_symbol_bigrams(
+            ru_symbol_bigrams, 1, ignore_case, 'абвгдеёжзийклмнопрстуфхцчшщьыъэюя'
+        )
+        print(f'... "{name}" sheet was written.')
 
     def sheet_yo_words(self, limit=0, min_quantity=1):
         '''Create sheet with quantity of entries for both of ye/yo word writing.
@@ -539,7 +575,7 @@ class ExcelWriter:
         yo_words.write_string('G4', 'Правильная Ё', self.f_bold)
         yo_words.write_number('H4', counter[2])
 
-        print('... Russian ye/yo words compare sheet was written.')
+        print('... "Russian ye/yo words" compare sheet was written.')
 
 
 class Result:

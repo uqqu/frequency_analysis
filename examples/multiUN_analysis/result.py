@@ -13,7 +13,7 @@ with frequency_analysis.Result() as res:
     #       (symbols, symbol bigrams, words, word bigrams) sheets
     res.treat(limits=(1000,) * 4, chart_limits=(20,) * 4, min_quantities=(10,) * 5)
     # sheet_custom_symb(symbols: string/list/tuple/set, chart_limit: int, name: str (sheet_name)
-    res.sheet_custom_top_symbols(ascii_letters)
+    res.sheet_en_top_symbols()
     res.sheet_en_symbol_bigrams()  # additional keyword argument – ignore_case (boolean)
     # just test. There is more easier way with sheet_en_symb_bigrams(ignore_case=True)
     res.sheet_custom_symbol_bigrams(ascii_letters, ignore_case=True, name='English letter bigrams')

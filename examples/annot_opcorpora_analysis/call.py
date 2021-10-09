@@ -16,7 +16,7 @@ with frequency_analysis.Analysis(mode='n', yo=True) as analyze:
         bs_data = BeautifulSoup(data, 'xml')
 
         for sentence in bs_data.find_all('source'):
-            analyze.count_all(sentence.text.split(), pos=True)
+            analyze.count_all(sentence.text.split(), pos=False, symbol_bigrams=False, word_bigrams=False)
         print(n, file)
 print('fin at:', datetime.now().strftime('%H:%M:%S'))
 print('total time taked to analysis:', datetime.now() - start)

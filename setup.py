@@ -5,7 +5,7 @@ with open('README.rst') as f:
 
 setup(
     name='frequency_analysis',
-    version='0.1.2',
+    version='0.1.3',
     description='Symbol/symbol bigram/word/word bigram frequency analyzer with excel output.',
     long_description=long_description,
     long_description_content_type='text/x-rst',

@@ -65,10 +65,10 @@ Many methods accept arguments <code>limit</code>, <code>chart_limit</code>, <cod
 * *limit* (default <code>0</code>) it is a max number of elements, which will be added to the sheet. Zero – unlimited;
 * *chart_limit* (default <code>20</code>) – a number of elements, which will be counted with graphical chart;
 * *min_quantity* (default <code>1</code>) – a minimal appropriate value at with element will be added to the sheet;
-* *ignore_case* (default <code>False</code>) – with this argument as <code>True</code> lower- and upper- case symbols will be united into a single element. With <code>False</code> – will be counted separately.
+* *ignore_case* (default <code>False</code>) – with this argument as <code>True</code> lower- and upper- case symbols will be united into a single element. With <code>False</code> – will be counted separately. Keyword-only.
 
 #### sheet_stats()
-Main result info – number of entries, total count and average position (if exists) for each data type.
+Main result info – number of unique entries, total count and average position (if exists) for each data type.
 
 #### sheet_top_symbols([limit, chart_limit, min_quantity])
 Top list of all analyzed symbols sorted by quantity. The next to it is also located the same one list, but with ignore-case. There is no need to create separate sheet, just use column of your choice.
@@ -76,26 +76,34 @@ Top list of all analyzed symbols sorted by quantity. The next to it is also loca
 #### sheet_top_symbol_bigrams([limit, chart_limit, min_quantity])
 Top list of symbol bigrams sorted by quantity with additional <code>case insensitive</code> top-list.
 
-#### sheet_all_symbol_bigrams([min_quantity, ignore_case])
-2D sheet with all bigrams quantity. <code>min_quantity</code> argument works here for sum of row/column values instead of each separated bigram.
-
 #### sheet_top_words([limit, chart_limit, min_quantity])
 Top list of analyzed words sorted by quantity. Word counting is always case insensitive, on the <code>Analyze</code> stage.
 
 #### sheet_top_word_bigrams([limit, chart_limit, min_quantity])
 Top list of analyzed word bigrams sorted by quantity.
 
+#### sheet_all_symbol_bigrams([min_quantity, ignore_case])
+2D sheet with all bigrams quantity. <code>min_quantity</code> argument works here for sum of row/column values instead of each separated bigram.
+
 #### treat([limits: tuple(four int), chart_limits: tuple(four int), min_quantities: tuple(five int)])
-Single call of all Result methods above. Calling methods in order of tuple values: <br><code>sheet_top_symbols()</code>, <br><code>sheet_top_symbol_bigrams()</code>, <br><code>sheet_top_words()</code>, <br><code>sheet_top_word_bigrams()</code>, <br><code>sheet_all_symbol_bigrams()</code>
+Single call of all Result methods above. Order of the tuple arguments are the same as order of description above.
 <br>Please note – the last one (value for *sheet_all_symbol_bigrams()*) there is only in the *min_quantities* argument.
 <br>Default values as elsewhere: *limits* – (0,)\*4; *chart_limits* – (20,)\*4; *min_quantities* – (1,)\*5.
 
-#### sheet_custom_symbols(symbols: str, [chart_limit, name='Custom symbols'])
+#### sheet_custom_top_symbols(symbols: str, [chart_limit, name='Custom top symbols'])
 Create symbols top-list as <code>sheet_top_symbols()</code>, but only with symbols of your choice.
+<br><code>name</code> – <code>keyword-only</code>
+
+#### sheet_en_top_symbols([ignore_case])
+Create symbols top-list as <code>sheet_top_symbols()</code>, but only with base Latin symbols.
+
+#### sheet_ru_top_symbols([ignore_case])
+Create symbols top-list as <code>sheet_top_symbols()</code>, but only with Russian Cyrillic symbols.
 
 #### sheet_custom_symbol_bigrams(symbols: str, [ignore_case, name='Custom symbol bigrams'])
 Create symbol bigrmas 2D sheet as <code>sheet_all_symbol_bigrams()</code>, but only with symbols of your choice.
 <br>Order of symbols on the sheet will be the same as in the input argument.
+<br><code>name</code> – <code>keyword-only</code>
 
 #### sheet_en_symbol_bigrams([ignore_case])
 Create symbol bigrams 2D sheet as <code>sheet_all_symbol_bigrams()</code>, but only with base Latin symbols.
