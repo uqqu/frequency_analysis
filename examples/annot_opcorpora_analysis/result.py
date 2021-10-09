@@ -13,7 +13,7 @@ with frequency_analysis.Result() as res:
     res.treat(limits=(1000,) * 4, chart_limits=(20,) * 4, min_quantities=(10,) * 5)
     res.sheet_ru_top_symbols()  # optional argument – chart_limit (int)
     res.sheet_ru_symbol_bigrams()  # optional keyword argument – ignore_case (boolean)
-    # just test. There is more easier way with sheet_ru_symb_bigrams(ignore_case=True)
+    # just test. There is more easier way with sheet_ru_symbol_bigrams(ignore_case=True)
     ru_symbs = 'абвгдеёжзийклмнопрстуфхцчшщьыъэюя'
     res.sheet_custom_symbol_bigrams(ru_symbs, ignore_case=True, name='Russian letter bigrams')
     res.sheet_yo_words()  # optional arguments – limit (int), min_quantity (int)

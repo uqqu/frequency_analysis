@@ -12,7 +12,7 @@ word_pattern = '[a-zA-Z]+(?:(?:-?[a-zA-Z]+)+|\'?[a-zA-Z]+)|[a-zA-Z]'
 allowed_symbols = [*range(32, 127)]
 
 with frequency_analysis.Analysis(
-    mode='c', word_pattern=word_pattern, allowed_symbols=allowed_symbols
+    mode='n', word_pattern=word_pattern, allowed_symbols=allowed_symbols
 ) as analyze:
     for n, file in enumerate(file_list):
         with io.open('multiUN/' + file, mode='r', encoding='utf-8') as f:

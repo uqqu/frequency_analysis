@@ -65,7 +65,7 @@ Many methods accept arguments <code>limit</code>, <code>chart_limit</code>, <cod
 * *limit* (default <code>0</code>) it is a max number of elements, which will be added to the sheet. Zero – unlimited;
 * *chart_limit* (default <code>20</code>) – a number of elements, which will be counted with graphical chart;
 * *min_quantity* (default <code>1</code>) – a minimal appropriate value at with element will be added to the sheet;
-* *ignore_case* (default <code>False</code>) – with this argument as <code>True</code> lower- and upper- case symbols will be united into a single element. With <code>False</code> – will be counted separately. Keyword-only.
+* *ignore_case* (default <code>False</code>) – with this argument as <code>True</code> lower- and upper- case symbols will be united into a single element. With <code>False</code> – will be counted separately. <code>Keyword-only</code>.
 
 #### sheet_stats()
 Main result info – number of unique entries, total count and average position (if exists) for each data type.
