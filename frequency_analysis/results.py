@@ -325,7 +325,9 @@ class ExcelWriter:
             {f'LIMIT {limit}' if limit else ''};
             '''
         )
+        l = 1
         for row, word in enumerate(self.cursor.fetchall(), 1):
+            l = len(word[0]) if (len(word[0]) > l and row <= chart_limit) else l
             top_words.write_string(row, 0, word[0])
             top_words.write_number(row, 1, word[1], self.f_int)
             top_words.write_number(row, 2, word[1] / self.sum_list[2], self.f_percent)
@@ -342,8 +344,8 @@ class ExcelWriter:
                 'values': f"='Top words'!$C2:$C{chart_limit+1}",
             }
         )
-        chart.set_size({'width': 356, 'height': 360})
-        chart.set_legend({'layout': {'x': 0.95, 'y': 0.37, 'width': 0.12, 'height': 0.95}})
+        chart.set_size({'width': 445, 'height': 360})
+        chart.set_legend({'layout': {'x': 0.95, 'y': 0.37, 'width': 0.15+l/100, 'height': 0.95}})
         chart.set_style(6)
         top_words.insert_chart('H2', chart)
 

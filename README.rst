@@ -35,8 +35,8 @@ All arguments are optional
     default ``[a-zA-Zà-ÿÀ-ß¸¨]+(?:(?:-?[a-zA-Zà-ÿÀ-ß¸¨]+)+\|'?[a-zA-Zà-ÿÀ-ß¸¨]+)\|[a-zA-Zà-ÿÀ-ß¸¨]``
 * *allowed\_symbols* – string of symbols or list with symbol unicode decimal values, which will be counted to analysis
     default ``[*range(32, 127), 1025, *range(1040, 1104), 1105]`` (base punctuation, base Latin, Russian Cyrillic)
-* *yo* – boolean for additional Russian word processing – compare words with word list to detect number of ye/yo misspelling.
-     default ``False``
+* *yo* – int for additional Russian word processing – compare words with word list to detect number of ye/yo misspelling. 0 – disabled; 1 – enabled; 2 with 'a' mode – update yo list with new data.
+     default ``0``
 
      To use the last one you should place two word files near the running script (``yo.txt`` for words with mandatory yo and ``ye-yo.txt`` for possibly yo writing). You can use your own or take it `here <https://github.com/uqqu/yo_dict>`__.
 
@@ -172,15 +172,19 @@ Create symbol bigrams 2D sheet as ``sheet_all_symbol_bigrams()``, but only with 
 ``sheet_yo_words([limit, min_quantity])``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Create cross-referenced sheet for all counted ye-yo words with their quantity and total misspells counter. Works only with analysis created with ``yo`` argument as ``True``.
+Create cross-referenced sheet for all counted ye-yo words with their quantity and total misspells counter. Works only with analysis created with ``yo`` argument as ``1`` or ``2``.
 
 Performed analyses
 ------------------
 
-* English analysis with `EuroMatrixPlus/MultiUN <http://www.euromatrixplus.net/multi-un/>`__ English data set (2.9Gb .xml, 2.4\*10\ :sup:`9` symbols, 379\*10\ :sup:`6` words)
+* English analysis with `EuroMatrixPlus/MultiUN <http://www.euromatrixplus.net/multi-un/>`__ English data set (3.1Gb .xml, 2.4\*10\ :sup:`9` symbols, 379\*10\ :sup:`6` words)
 
-   * https://github.com/uqqu/frequency\_analysis/tree/master/examples/multiUN\_analysis
+   * https://github.com/uqqu/frequency\_analysis/tree/master/examples/en/multiUN
 
-* Russian analysis with `OpenCorpora <http://opencorpora.org/>`__ data set (520Mb .xml, 11.7\*10\ :sup:`6` symbols, 1.6\*10\ :sup:`6` words)
+* Russian analysis with `EuroMatrixPlus/MultiUN <http://www.euromatrixplus.net/multi-un/>`__ Russian data set (4.3Gb .xml, 2.2\*10\ :sup:`9` symbols, 270\*10\ :sup:`6` words)
 
-   * https://github.com/uqqu/frequency\_analysis/tree/master/examples/annot\_opcorpora\_analysis
+   * https://github.com/uqqu/frequency\_analysis/tree/master/examples/ru/multiUN
+
+* Russian analysis with `OpenCorpora <http://opencorpora.org/>`__ data set (528Mb .xml, 11.7\*10\ :sup:`6` symbols, 1.6\*10\ :sup:`6` words)
+
+   * https://github.com/uqqu/frequency\_analysis/tree/master/examples/ru/annot\_opcorpora

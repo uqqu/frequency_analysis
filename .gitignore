@@ -2,7 +2,7 @@
 build/
 dist/
 *.xml
-examples/annot_opcorpora_analysis/*.txt
-examples/multiUN_analysis/multiUN/
-# 400M multiUN result.db file
-examples/multiUN_analysis/frequency_analysis/result.db
+*.db-journal
+*yo.txt
+examples/*/multiUN/multiUN/
+examples/*/multiUN/frequency_analysis/result.db

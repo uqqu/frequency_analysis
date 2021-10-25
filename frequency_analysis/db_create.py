@@ -77,12 +77,14 @@ def create_new(db, allowed_symbols):
     db.commit()
 
 
-def yo_mode(db):
+def yo_mode(db, recreate=False):
     '''Create additional table for a demonstration ye/yo Cyrillic misspelling.
 
     Require additional files with ye/yo word lists.
     One of the options: https://github.com/uqqu/yo_dict'''
     cursor = db.cursor()
+    if recreate:
+        cursor.execute('''DROP TABLE IF EXISTS yo_words;''')
     cursor.execute(
         '''
         CREATE TABLE yo_words (

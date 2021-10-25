@@ -249,7 +249,7 @@ class Analysis:
         word_pattern: str = \
         '[a-zA-Zа-яА-ЯёЁ]+(?:(?:-?[a-zA-Zа-яА-ЯёЁ]+)+|\'?[a-zA-Zа-яА-ЯёЁ]+)|[a-zA-Zа-яА-ЯёЁ]',
         allowed_symbols: List[Union[int, str]] = [*range(32, 127), 1025, *range(1040, 1104), 1105],
-        yo: bool = False,
+        yo: int = 0,
     ):
         self.name = name
         self.mode = mode
@@ -323,6 +323,8 @@ class Analysis:
         elif self.mode == 'c':
             total_words = cursor.execute('SELECT SUM(quantity) FROM words;').fetchone()[0]
             total_symbols = cursor.execute('SELECT SUM(quantity) FROM symbols;').fetchone()[0]
+        elif self.mode == 'a' and self.yo == 2:
+            db_create.yo_mode(self.db, True)
 
         return FrequencyAnalysis(
             self.name, self.word_pattern, self.allowed_symbols, total_symbols, total_words, self.db
