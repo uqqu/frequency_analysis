@@ -1,7 +1,7 @@
 ﻿from setuptools import setup
 
 with open('README.rst') as f:
-    long_description=f.read()
+    long_description = f.read()
 
 setup(
     name='frequency_analysis',
@@ -13,9 +13,9 @@ setup(
     classifiers=[
         'Programming Language :: Python :: 3.8',
         'Topic :: Text Processing :: Linguistic',
-        ],
+    ],
     keywords='frequency analysis bigram linguistic cryptanalysis',
     packages=['frequency_analysis'],
     install_requires=['xlsxwriter'],
     url='https://github.com/uqqu/frequency_analysis',
-    )
+)

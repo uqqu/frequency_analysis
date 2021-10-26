@@ -48,8 +48,8 @@ class FrequencyAnalysis:
         for n, word in enumerate(word_list[:], 1):
             if res := re.findall(self.word_pattern, word):
                 [clear_word_list.append(x) for x in res]
-                [word_list.insert(n+shift, '') for _ in range(len(res)-1)]
-                shift += len(res)-1
+                [word_list.insert(n + shift, '') for _ in range(len(res) - 1)]
+                shift += len(res) - 1
             else:
                 clear_word_list.append('')
         return clear_word_list
@@ -246,8 +246,8 @@ class Analysis:
         self,
         name: str = 'frequency_analysis',
         mode: str = 'n',  # n – new file, a – append to existing, c – continue to existing
-        word_pattern: str = \
-        '[a-zA-Zа-яА-ЯёЁ]+(?:(?:-?[a-zA-Zа-яА-ЯёЁ]+)+|\'?[a-zA-Zа-яА-ЯёЁ]+)|[a-zA-Zа-яА-ЯёЁ]',
+        word_pattern: str = '[a-zA-Zа-яА-ЯёЁ]+(?:(?:-?[a-zA-Zа-яА-ЯёЁ]+)+|\
+                \'?[a-zA-Zа-яА-ЯёЁ]+)|[a-zA-Zа-яА-ЯёЁ]',
         allowed_symbols: List[Union[int, str]] = [*range(32, 127), 1025, *range(1040, 1104), 1105],
         yo: int = 0,
     ):
@@ -311,7 +311,7 @@ class Analysis:
 
         if not os.path.exists(os.path.join(os.getcwd(), self.name)):
             os.mkdir(os.path.join(os.getcwd(), self.name))
-            
+
         total_words = 0
         total_symbols = 0
         self.db = sqlite3.connect(os.path.join(os.getcwd(), self.name, 'result.db'))
