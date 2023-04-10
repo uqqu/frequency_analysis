@@ -2,4 +2,4 @@
 from frequency_analysis.frequency import Analysis
 from frequency_analysis.results import Result
 
-__version__ = '0.1.4'
+__version__ = '0.1.4.4'

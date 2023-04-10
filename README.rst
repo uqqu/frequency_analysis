@@ -27,15 +27,15 @@ Methods and arguments
 
 All arguments are optional
 
-* *name* ñ the name of the folder in which the analysis will be saved
+* *name* ‚Äì the name of the folder in which the analysis will be saved
      default ``frequency_analysis``
-* *mode* ñ analysis operation mode (``[n]ew``, ``[a]ppend``, ``[c]ontinue``)
+* *mode* ‚Äì analysis operation mode (``[n]ew``, ``[a]ppend``, ``[c]ontinue``)
      default ``n``
-* *word\_pattern* ñ regex pattern for matching inwords symbols
-    default ``[a-zA-Z‡-ˇ¿-ﬂ∏®]+(?:(?:-?[a-zA-Z‡-ˇ¿-ﬂ∏®]+)+\|'?[a-zA-Z‡-ˇ¿-ﬂ∏®]+)\|[a-zA-Z‡-ˇ¿-ﬂ∏®]``
-* *allowed\_symbols* ñ string of symbols or list with symbol unicode decimal values, which will be counted to analysis
+* *word\_pattern* ‚Äì regex pattern for matching inwords symbols
+    default ``[a-zA-Z–∞-—è–ê-–Ø—ë–Å]+(?:(?:-?[a-zA-Z–∞-—è–ê-–Ø—ë–Å]+)+\|'?[a-zA-Z–∞-—è–ê-–Ø—ë–Å]+)\|[a-zA-Z–∞-—è–ê-–Ø—ë–Å]``
+* *allowed\_symbols* ‚Äì string of symbols or list with symbol unicode decimal values, which will be counted to analysis
     default ``[*range(32, 127), 1025, *range(1040, 1104), 1105]`` (base punctuation, base Latin, Russian Cyrillic)
-* *yo* ñ int for additional Russian word processing ñ compare words with word list to detect number of ye/yo misspelling. 0 ñ disabled; 1 ñ enabled; 2 with 'a' mode ñ update yo list with new data.
+* *yo* ‚Äì int for additional Russian word processing ‚Äì compare words with word list to detect number of ye/yo misspelling. 0 ‚Äì disabled; 1 ‚Äì enabled; 2 with 'a' mode ‚Äì update yo list with new data.
      default ``0``
 
      To use the last one you should place two word files near the running script (``yo.txt`` for words with mandatory yo and ``ye-yo.txt`` for possibly yo writing). You can use your own or take it `here <https://github.com/uqqu/yo_dict>`__.
@@ -49,9 +49,9 @@ All arguments are optional
 Method for counting symbol and symbol\_bigram frequency. Counted values:
 quantity, quantity in the first position, quantity in the last position, average position in word. 
 
-Average position counted only with argument ``pos`` as ``True`` (default ``False``). Position for symbols, which matched with ``word_pattern`` counted as for "clear" word, for other ñ as for "raw".
+Average position counted only with argument ``pos`` as ``True`` (default ``False``). Position for symbols, which matched with ``word_pattern`` counted as for "clear" word, for other ‚Äì as for "raw".
 
-Example: in single word ``ñYes!`` with default ``word_pattern`` positions will be counted as ``(ñ 1), (Y 1), (e 2), (s 3), (! 5)``.
+Example: in single word ``‚ÄìYes!`` with default ``word_pattern`` positions will be counted as ``(‚Äì 1), (Y 1), (e 2), (s 3), (! 5)``.
 
 Bigrams counting can be disabled with argument ``bigram`` as ``False`` (default ``True``).
 
@@ -75,7 +75,7 @@ Combined call of previous two methods.
 
 The only argument is optional
 
-* *name* ñ the name of the folder in which the analysis was saved
+* *name* ‚Äì the name of the folder in which the analysis was saved
     default ``frequency_analysis``
 
 ``Result`` class methods
@@ -85,15 +85,15 @@ The only argument is optional
 
 Many methods accept arguments ``limit``, ``chart_limit``, ``min_quantity`` and ``ignore_case``.
 
-* *limit* (default ``0``) it is a max number of elements, which will be added to the sheet. ``0`` ñ unlimited;
-* *chart_limit* (default ``20``) ñ a number of elements, which will be counted with graphical chart;
-* *min_quantity* (default ``1``) ñ a minimal appropriate value at with element will be added to the sheet;
-* *ignore_case* (default ``False``) ñ with this argument as ``True`` lower- and upper- case symbols will be united into a single element. With ``False`` ñ will be counted separately. ``Keyword-only``
+* *limit* (default ``0``) it is a max number of elements, which will be added to the sheet. ``0`` ‚Äì unlimited;
+* *chart_limit* (default ``20``) ‚Äì a number of elements, which will be counted with graphical chart;
+* *min_quantity* (default ``1``) ‚Äì a minimal appropriate value at with element will be added to the sheet;
+* *ignore_case* (default ``False``) ‚Äì with this argument as ``True`` lower- and upper- case symbols will be united into a single element. With ``False`` ‚Äì will be counted separately. ``Keyword-only``
 
 ``sheet_stats()``
 ^^^^^^^^^^^^^^^^^
 
-Main result info ñ number of entries, total count and average position (if exists) for each data type.
+Main result info ‚Äì number of entries, total count and average position (if exists) for each data type.
 
 ``sheet_top_symbols([limit, chart_limit, min_quantity])``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -131,18 +131,18 @@ Single call of all ``Result`` methods above. Calling methods in order of tuple v
 4. ``sheet_top_word_bigrams()``
 5. ``sheet_all_symbol_bigrams()``
 
-Please note ñ the last one (value for ``sheet_all_symbol_bigrams()``) there is only in the ``min_quantities`` argument. 
+Please note ‚Äì the last one (value for ``sheet_all_symbol_bigrams()``) there is only in the ``min_quantities`` argument. 
 
 Default values as elsewhere:
 
-* *limits* ñ ``(0,)*4``
-* *chart_limits* ñ ``(20,)*4``
-* *min_quantities* ñ ``(1,)*5``
+* *limits* ‚Äì ``(0,)*4``
+* *chart_limits* ‚Äì ``(20,)*4``
+* *min_quantities* ‚Äì ``(1,)*5``
 
 ``sheet_custom_top_symbols(symbols: str, [chart_limit, name='Custom symbols'])``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Create symbols top-list as ``sheet_top_symbols()``, but only with symbols of your choice. ``name`` ñ ``keyword-only``
+Create symbols top-list as ``sheet_top_symbols()``, but only with symbols of your choice. ``name`` ‚Äì ``keyword-only``
 
 ``sheet_en_top_symbols(symbols: str, [chart_limit])``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -157,7 +157,7 @@ Create symbols top-list as ``sheet_top_symbols()``, but only with Russian Cyrill
 ``sheet_custom_symbol_bigrams(symbols: str, [ignore_case, name='Custom symbol bigrams'])``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Create symbol bigrmas 2D sheet as ``sheet_all_symbol_bigrams()``, but only with symbols of your choice. Order of symbols on the sheet will be the same as in the input argument. ``name`` ñ ``keyword-only``
+Create symbol bigrmas 2D sheet as ``sheet_all_symbol_bigrams()``, but only with symbols of your choice. Order of symbols on the sheet will be the same as in the input argument. ``name`` ‚Äì ``keyword-only``
 
 ``sheet_en_symbol_bigrams([ignore_case])``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
