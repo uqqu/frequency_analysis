@@ -73,9 +73,12 @@ class ExcelWriter:
             values[0][symb[0] + (symb[1] if dbl else '')] = list(symb[1 + dbl :])
             if (s := (symb[0] + (symb[1] if dbl else '')).lower()) in values[1]:
                 if pos_data:
-                    values[1][s][3] = (
-                        values[1][s][3] * values[1][s][0] + symb[4 + dbl] * symb[1 + dbl]
-                    ) / (values[1][s][0] + symb[1 + dbl])
+                    try:
+                        values[1][s][3] = (
+                            values[1][s][3] * values[1][s][0] + symb[4 + dbl] * symb[1 + dbl]
+                        ) / (values[1][s][0] + symb[1 + dbl])
+                    except ZeroDivisionError:
+                        values[1][s][3] = 0
                 values[1][s][0] += symb[1 + dbl]
                 values[1][s][1] += symb[2 + dbl]
                 values[1][s][2] += symb[3 + dbl]
